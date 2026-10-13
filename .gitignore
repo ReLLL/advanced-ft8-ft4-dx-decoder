@@ -1,0 +1,10 @@
+build*/
+dist/
+*.sqlite3*
+__pycache__/
+.DS_Store
+resources/dreamed-ui/
+*.csv
+*.log
+*.pcm
+*.wav

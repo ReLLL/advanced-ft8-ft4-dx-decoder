@@ -1,0 +1,57 @@
+// Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+#include "engine.h"
+#include "tiles.h"
+#include "cartography.h"
+#include <module.h>
+#include <gui/gui.h>
+#include <signal_path/signal_path.h>
+#include <dsp/sink/handler_sink.h>
+#include <dsp/demod/ssb.h>
+#include <dsp/multirate/rational_resampler.h>
+#include <utils/cty.h>
+class DXNotebook;
+namespace dx {std::optional<std::string> chooseCsvLog(const std::string& current);bool playAlertSound(const std::string& name);std::vector<unsigned char> homeIconPixels();void openCallsignLookup(const std::string& call,int provider);}
+struct DXChannel {
+ DXNotebook* owner;dx::Preset preset;std::string name;dsp::channel::RxVFO* vfo=nullptr;
+ dsp::demod::SSB<dsp::stereo_t> usb;dsp::sink::Handler<dsp::stereo_t> sink;
+ dsp::multirate::RationalResampler<dsp::stereo_t> resampler;
+ dx::SlotCapture capture;std::atomic<bool> accept{false};std::atomic<uint64_t> blocks{0};
+ std::atomic<double> progress{0},level{-120};double lastData=0,nextRetry=0;uint64_t lastBlocks=0,reconnects=0;
+ std::atomic<uint64_t> samples{0},discontinuities{0};std::atomic<int64_t> streamMs{0};
+ std::atomic<bool> resetRequested{false},replay{false};
+ DXChannel(DXNotebook*,dx::Preset,double center);~DXChannel();
+ static void audio(dsp::stereo_t*,int,void*);
+};
+struct MapView {double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true;float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;};
+class DXNotebook:public ModuleManager::Instance {
+public:
+ explicit DXNotebook(std::string name);~DXNotebook();void postInit()override{}
+ void enable()override;void disable()override;bool isEnabled()override{return enabled_;}
+ std::string handleDebugCommand(const std::string&,const std::string&)override;
+ dx::Engine& engine(){return *engine_;}
+private:
+ void sidebar();void draw();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void filters(dx::Filter&,const char*);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details();void save();void refresh();void migration();
+ std::pair<std::string,std::string> lookupCountry(const std::string& call)const;
+ std::string name_;std::filesystem::path root_;std::unique_ptr<dx::Engine> engine_;dx::Point home_;utils::CTY countries_;
+ bool enabled_=true,open_=true,present_=true,paused_=false,ft8_=true,ft4_=true,ownsGesture_=false,popup_=false,settingsLoaded_=false;
+ bool link_=false,messages_=false;int view_=0,tableTime_=2,mapTime_=4,sort_=17;bool descending_=true;float split_=.53f;
+ double center_=0,rate_=0,lastRefresh_=0;uint64_t generation_=1;ImVec2 windowMin_,windowMax_;
+ std::vector<std::unique_ptr<DXChannel>> channels_;std::vector<dx::Preset> presets_=dx::presets();
+ dx::Filter tableFilter_,mapFilter_;dx::Query tableQuery_,mapQuery_;std::optional<dx::Decode> selected_;MapView mapView_;
+ std::vector<std::vector<dx::Point>> world_;struct CountryLabel{std::string name;dx::Point point;};std::vector<CountryLabel> labels_;
+ struct MapCountry{std::string name;std::vector<std::string> keys;std::vector<std::vector<std::vector<dx::Point>>> polygons;std::vector<dx::CountryMesh> offlineMeshes,onlineMeshes;dx::Point label;size_t labelPolygon=0;};std::vector<MapCountry> mapCountries_;
+ std::vector<std::string> highlightedCountries_;std::vector<bool> heardCountryOutlines_;
+ std::unique_ptr<dx::Tiles> tiles_;std::vector<bool> fittedLabels_;double labelScale_=-1;float labelFontSize_=0;int labelBase_=-1;
+ std::vector<std::string> ignored_;char customDial_[32]="",customMode_[8]="FT8";
+ int detailsOffset_=0;char customSince_[32]="",customUntil_[32]="";
+ std::string watchCalls_;int64_t heardAlert_=0;dx::Json alerts_=dx::Json::object();dx::Filter alertFilter_;
+ std::mutex uiMutex_;
+ bool sortDefaultsPending_=true,settingsOpen_=false,settingsPresent_=false,settingsVisible_=false;int settingsPage_=0,columnLayout_=0;
+ ImVec2 settingsMin_,settingsMax_;std::string settingsError_;
+ int clearTarget_=0;bool clearRequested_=false,clearStats_=true;int64_t tableCleared_=0,mapCleared_=0;unsigned int homeIcon_=0;
+ bool clearOnStart_=true,statsHistory_=false;int directionStations_=5,directionMinutes_=15,csvMaxMb_=100;char csvPath_[4096]="";
+ std::string csvLogPath_;
+ bool gridTrackerEnabled_=false,gridTrackerReplay_=true;int gridTrackerPort_=2237,gridTrackerMinutes_=30;char gridTrackerAddress_[64]="127.0.0.1";std::string gridTrackerHost_="127.0.0.1";
+ EventHandler<ImGuiContext*> drawHandler_;EventHandler<ImGui::WaterFall::InputHandlerArgs> inputHandler_;
+};
