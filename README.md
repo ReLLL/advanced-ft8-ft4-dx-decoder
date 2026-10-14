@@ -41,6 +41,14 @@ Closing the decoder window keeps reception, logging, alerts and integrations run
 
 Map markers and table rows share station actions. Ignore transmitter accepts unresolved and malformed identities, asks for confirmation, then deletes matching saved receptions and blocks future ones; statistics update in the background. Rows with no transmitter identity can ignore that exact message without deleting unrelated unknown messages. Unignore allows future receptions without restoring deleted records.
 
+## Screenshots
+
+Live reception in SDR++Brown, showing the DX map, reception tables, country flags and waterfall notifications.
+
+![Live FT8/FT4 reception with the plugin and waterfall notifications](docs/images/live-reception-overview.jpg)
+
+![Decoder workspace with country statistics, map and unique stations table](docs/images/decoder-workspace.jpg)
+
 ## Read the numbers correctly
 
 Distance uses the great-circle path between your home grid center and a received station grid center. `*` before a distance marks recent cached grid evidence. A missing grid stays unknown; a callsign prefix identifies a DXCC entity rather than an exact transmitter location.
