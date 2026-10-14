@@ -22,6 +22,11 @@ int main(){
  country.push_back({{-1,-1},{-1,1},{1,1},{1,-1},{-1,-1}});CHECK(!dx::insidePolygon({0,0},country));CHECK(!dx::labelFits({0,0},10,4,country));
  CHECK(!dx::gridPoint("RR73"));CHECK(!dx::gridPoint("A"));CHECK(!dx::gridPoint("ZZ00"));CHECK(dx::gridPoint("KM69"));
  CHECK(std::round(dx::distanceBearing(*dx::gridPoint("KM69"),*dx::gridPoint("KN07")).first)==1312);
+ // ARRL grid-center calculator: KM69 -> NO35 = 4296.5 km, using R=6371.14.
+ auto ankara=*dx::gridPoint("KM69"),rk9ue=*dx::gridPoint("NO35");CHECK(ankara.lat==39.5&&ankara.lon==33&&rk9ue.lat==55.5&&rk9ue.lon==87);
+ auto siberia=dx::distanceBearing(ankara,rk9ue);CHECK(std::abs(siberia.first-4296.401573)<.001&&std::abs(siberia.second-47.211998)<.001);
+ CHECK(std::abs(dx::distanceBearing(rk9ue,ankara).first-siberia.first)<1e-6);
+ CHECK(dx::distanceBearing(ankara,ankara).first==0);CHECK(std::abs(dx::distanceBearing({0,179},{0,-179}).first-222.39016)<.01);
  auto home=*dx::gridPoint("KM69"),boston=*dx::gridPoint("FN42");auto distance=dx::distanceBearing(home,boston);CHECK(distance.first>7500&&distance.first<9000);CHECK(std::isfinite(distance.second));
  auto dateline=dx::greatCircle({40,170},{40,-170});CHECK(dateline.size()==129);for(auto p:dateline)CHECK(std::isfinite(p.lat)&&std::isfinite(p.lon));
  for(auto pair:std::vector<std::pair<dx::Point,dx::Point>>{{{90,0},{-90,0}},{{0,0},{0,180}},{{42,1},{42,1}}})for(auto p:dx::greatCircle(pair.first,pair.second))CHECK(std::isfinite(p.lat)&&std::isfinite(p.lon));
@@ -43,6 +48,10 @@ int main(){
  auto path=std::filesystem::temp_directory_path()/("dx-test-"+std::to_string(getpid())+".sqlite3");{
  dx::Store store(path);CHECK(store.insert(d,home));CHECK(!store.insert(d,home));CHECK(d.km&&d.gridSource=="received"&&d.distanceRecord);CHECK(dx::Decode::fromJson(d.json()).distanceRecord);auto legacy=d;legacy.source="legacy";CHECK(!store.insert(legacy,home));dx::Decode report=d;report.utc+=15;report.message="K2ABC K1ABC -10";CHECK(store.insert(report,home));CHECK(report.gridSource=="cached"&&report.position);auto stats=store.stats(report.utc);CHECK(stats.stations==1&&stats.messages==2&&stats.recentStations==1);dx::Query q;auto rows=store.rows(q);CHECK(rows.size()==1&&rows[0].count==2);q.messages=true;CHECK(store.rows(q).size()==2);q.filter.excludeCall="K1*";CHECK(store.rows(q).empty());CHECK(store.history("K1ABC",7074000,"FT8").size()==2);
  }
+ auto uniquePath=std::filesystem::temp_directory_path()/("dx-unique-"+std::to_string(getpid())+".sqlite3");{
+  dx::Store store(uniquePath);auto live=d;live.message="CQ F6ARS JN38";live.dial=7047500;live.mode="FT4";CHECK(store.insert(live,home));auto imported=live;imported.dial=7048000;imported.source="legacy";imported.snr=-14;CHECK(store.insert(imported,home));dx::Query q;q.uniqueCalls=true;auto rows=store.rows(q);CHECK(rows.size()==1&&rows.front().decode.dial==7048000&&rows.front().decode.snr==-14&&rows.front().count==2);
+  auto latest=live;latest.utc+=15;latest.dial=14074000;latest.mode="FT8";latest.message="G1ABC F6ARS -07";latest.snr=-5;CHECK(store.insert(latest,home));rows=store.rows(q);CHECK(rows.size()==1&&rows.front().decode.message==latest.message&&rows.front().decode.mode=="FT8"&&rows.front().decode.snr==-5&&rows.front().count==3&&rows.front().stationFirstHeardUtc==live.utc);q.filter.band="40m";rows=store.rows(q);CHECK(rows.size()==1&&rows.front().decode.dial==7048000&&rows.front().decode.message==live.message&&rows.front().count==2);CHECK(store.stats(latest.utc).messages==3);
+ }std::filesystem::remove(uniquePath);std::filesystem::remove(uniquePath.string()+"-wal");std::filesystem::remove(uniquePath.string()+"-shm");
  auto germanyPath=std::filesystem::temp_directory_path()/("dx-germany-"+std::to_string(getpid())+".sqlite3");{
   dx::Store store(germanyPath);auto german=d;german.message="CQ DL1ABC JO62";CHECK(store.insert(german,home,[](const std::string&){return std::make_pair("Fed. Rep. of Germany","EU");}));CHECK(german.country=="Germany"&&german.json()["country"]=="Germany");auto old=german.json();old["country"]="Fed. Rep. of Germany";CHECK(dx::Decode::fromJson(old).country=="Germany");store.setSetting("country_names",0);store.setSetting("farthest_country","Fed. Rep. of Germany");
  }
@@ -57,10 +66,25 @@ int main(){
   CHECK(dx::latestHeardSummary(unknown).find("distance unknown | -12 dB SNR")!=std::string::npos);CHECK(dx::latestHeardSummary(grid).find("km | -12 dB SNR")!=std::string::npos);
  }
  std::filesystem::remove(cachePath);std::filesystem::remove(cachePath.string()+"-wal");std::filesystem::remove(cachePath.string()+"-shm");
+ auto newestCountriesPath=std::filesystem::temp_directory_path()/("dx-newest-countries-"+std::to_string(getpid())+".sqlite3");{
+  dx::Store store(newestCountriesPath);std::vector<dx::Decode> discoveries;
+  for(int n=0;n<5;n++){
+   auto first=d;first.utc+=n*15;first.message="CQ K"+std::to_string(n+1)+"ABC FN42";first.country="Country "+std::to_string(n);CHECK(store.insert(first,home));discoveries.push_back(first);
+   auto stats=store.sessionStats(first.utc,0,d.utc);CHECK(stats.countries==n+1&&stats.newestCountries.size()==size_t(std::min(3,n+1)));
+   for(size_t i=0;i<stats.newestCountries.size();i++)CHECK(stats.newestCountries[i]==discoveries[size_t(n)-i].country);
+  }
+  auto updated=discoveries.back();updated.utc+=90;updated.message="K8ABC K5ABC -10";CHECK(store.insert(updated,home));dx::Query newest;newest.uniqueCalls=true;newest.filter.call="K5ABC";auto shown=store.rows(newest);auto updatedStats=store.sessionStats(updated.utc,0,d.utc);CHECK(shown.size()==1&&shown.front().decode.key()==updated.key());CHECK(updatedStats.isNewestCountry(shown.front().decode.country));
+  auto repeat=discoveries.front();repeat.utc+=120;CHECK(store.insert(repeat,home));auto stats=store.sessionStats(repeat.utc,0,d.utc);CHECK(stats.newestCountries==std::vector<std::string>({discoveries[4].country,discoveries[3].country,discoveries[2].country}));
+  CHECK(!stats.isNewestCountry(discoveries[0].country)&&!stats.isNewestCountry(discoveries[1].country)&&stats.isNewestCountry(discoveries[2].country));
+  auto secondStation=repeat;secondStation.utc+=15;secondStation.message="CQ K6ABC FN42";CHECK(store.insert(secondStation,home));CHECK(store.sessionStats(secondStation.utc,0,d.utc).newestCountries==stats.newestCountries);
+  auto unknown=repeat;unknown.utc+=30;unknown.country.clear();unknown.message="CQ K7ABC FN42";CHECK(store.insert(unknown,home));CHECK(store.sessionStats(unknown.utc,0,d.utc).newestCountries==stats.newestCountries);
+  auto cutoff=store.lastReceptionId();CHECK(store.sessionStats(unknown.utc,cutoff,unknown.utc).newestCountries.empty());repeat.utc+=60;CHECK(store.insert(repeat,home));CHECK(store.sessionStats(repeat.utc,cutoff,unknown.utc).newestCountries==std::vector<std::string>({repeat.country}));
+ }
+ std::filesystem::remove(newestCountriesPath);std::filesystem::remove(newestCountriesPath.string()+"-wal");std::filesystem::remove(newestCountriesPath.string()+"-shm");
  auto sessionPath=std::filesystem::temp_directory_path()/("dx-session-"+std::to_string(getpid())+".sqlite3");{
   dx::Store store(sessionPath);auto country=[](const std::string& call){return std::make_pair(call[0]=='G'?"United Kingdom":"United States","NA");};auto old=d;CHECK(store.insert(old,home,country));auto cutoff=store.lastReceptionId();auto blank=store.sessionStats(d.utc,cutoff,d.utc);CHECK(blank.messages==0&&blank.stations==0&&blank.countries==0&&blank.recentStations==0&&blank.farthest==0&&blank.latest.empty());
   auto heard=d;heard.utc+=15;CHECK(store.insert(heard,home,country));auto again=heard;again.utc+=15;again.message="K2ABC K1ABC RR73";CHECK(store.insert(again,home,country));auto british=d;british.utc+=30;british.message="CQ G1ABC IO91";CHECK(store.insert(british,home,country));auto stats=store.sessionStats(british.utc,cutoff,d.utc);CHECK(stats.messages==3&&stats.stations==2&&stats.countries==2&&stats.recentStations==2&&stats.latest.size()==2&&stats.farthest>7500&&stats.farthestCountry=="United States");
-  CHECK(stats.farthestCall=="K1ABC"&&stats.firstCountryKeys.size()==2);CHECK(std::find(stats.firstCountryKeys.begin(),stats.firstCountryKeys.end(),heard.key())!=stats.firstCountryKeys.end());CHECK(std::find(stats.firstCountryKeys.begin(),stats.firstCountryKeys.end(),again.key())==stats.firstCountryKeys.end());
+  CHECK(stats.farthestCall=="K1ABC"&&stats.newestCountries.size()==2);CHECK(stats.isNewestCountry(heard.country));CHECK(stats.isNewestCountry(again.country));
   cutoff=store.lastReceptionId();CHECK(store.sessionStats(british.utc,cutoff,british.utc).messages==0);auto sameSlot=british;sameSlot.audio+=1;CHECK(store.insert(sameSlot,home,country));CHECK(store.sessionStats(british.utc,cutoff,british.utc).messages==1);
   auto historical=d;historical.utc-=1000;historical.audio+=2;historical.source="legacy";CHECK(store.insert(historical,home,country));CHECK(store.sessionStats(british.utc,cutoff,british.utc).messages==1);CHECK(store.stats(british.utc).messages==6);
   dx::Query q;q.afterRowId=cutoff;q.filter.call="G*";CHECK(store.rows(q).size()==1);int64_t count=0;store.rows(q,0,0,&count);CHECK(count==1);

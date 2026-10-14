@@ -18,10 +18,15 @@ public:
  Json getSetting(const std::string& key,const Json& fallback);void setSetting(const std::string& key,const Json& value);
  void exportRows(const Query& query,const std::filesystem::path& path,bool csv);
  void reclassifyCountries(const std::function<std::pair<std::string,std::string>(const std::string&)>& country);
+ void rebaseDistances(Point home);
  std::vector<ExchangePath> exchangePaths(const Query& query);
  std::vector<std::pair<int64_t,Decode>> logRows(int64_t after,int limit=256);
  int64_t lastReceptionId();
+ int64_t ignoreTransmitter(const std::string& call);
+ int64_t ignoreMessage(const std::string& message);bool ignoredMessage(const std::string& message);std::vector<std::string> ignoredMessages();bool ignoredReception(const Decode& decode);
+ void unignoreAll();std::vector<std::string> ignoredCalls();bool ignored(const std::string& call);
 private:
+ int64_t ignore(const IgnoreTarget& target);
  void exec(const std::string& sql);sqlite3* db_=nullptr;
 };
 }

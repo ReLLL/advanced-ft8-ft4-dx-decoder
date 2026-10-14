@@ -1,6 +1,8 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include "store.h"
+#include "country_summary.h"
+#include "corner_feed.h"
 #include "helper_client.h"
 #include "alerts.h"
 #include "csv_log.h"
@@ -13,12 +15,13 @@
 namespace dx {
 struct Arrival {std::string key;int64_t observedMs=0;};
 struct Snapshot {
- Stats stats;bool statsHistory=false;std::vector<Row> table,map;std::vector<Decode> details,hoverMessages;std::optional<Decode> hoverStation;
- std::vector<ExchangePath> paths;
+ Stats stats;bool statsHistory=false,historyAll=false,tableMessages=false,tableCountries=false;std::vector<CountrySummary> countryTable;std::vector<Row> table,map;std::vector<Decode> details,hoverMessages;std::optional<Decode> hoverStation;
+ std::vector<ExchangePath> paths;std::vector<CornerReception> cornerReceptions;std::string detailsCountry;
  std::vector<std::string> mapHeardCountries;
  std::vector<Arrival> arrivals;int64_t newestReceptionUtc=0;ActivityBearing direction;std::vector<Decode> directionStations;
  std::string csvPath,csvError;uint64_t csvBytes=0;bool csvCatchingUp=false;
  GridTrackerState gridTracker;
+ std::vector<std::string> ignoredCalls,ignoredMessages,csvPaths;bool moderating=false;
  int64_t tableCount=0,mapCount=0,tableExcluded=0,mapExcluded=0;
  Json settings=Json::object();uint64_t generation=0;double queryMs=0;
  std::string error,notice,alert,alertTone;int64_t alertUtc=0;bool alertSound=false;size_t pendingWrites=0,queued=0;uint64_t skipped=0,failures=0,decodedJobs=0;
@@ -30,10 +33,12 @@ public:
   std::function<std::pair<std::string,std::string>(const std::string&)> country);
  ~Engine();void enqueue(Job job);void query(Query table,Query map,uint64_t generation);
  void select(const Decode& d,int offset=0);void settings(Json values);void exportData(Query query,std::filesystem::path path,bool csv);
+ void selectCountry(std::string country,int offset=0);
  void active(bool enabled);void retry();std::shared_ptr<const Snapshot> snapshot()const;
  void alertContext(std::string bands,bool ft8,bool ft4);
  void home(Point point);
  void resetStats();
+ void ignoreTransmitter(std::string call);void ignoreMessage(std::string message);void unignoreAll();
  void gridTrackerContext(GridTrackerContext context);
  void hover(const Decode& station);
 private:
@@ -43,14 +48,15 @@ private:
  mutable std::mutex mutex_;std::condition_variable cv_;std::thread decoder_,writer_;std::atomic<bool> stopping_{false};
  std::deque<Job> jobs_;std::deque<Decode> writes_;std::shared_ptr<const Snapshot> snapshot_=std::make_shared<Snapshot>();
  Query table_,map_;uint64_t generation_=1;bool queryDirty_=true,active_=false,retry_=false,blocked_=false;
- std::optional<Decode> selection_;int historyOffset_=0;bool selectionDirty_=false;
+ std::optional<Decode> selection_;std::string selectionCountry_;int historyOffset_=0;bool selectionDirty_=false;
  std::optional<Decode> hovered_;
  Json pendingSettings_=Json::object();std::optional<std::tuple<Query,std::filesystem::path,bool>> export_;
+ std::deque<IgnoreTarget> moderation_;
  Snapshot status_;std::string allTxt_;int64_t logPosition_=0;uint64_t logInode_=0;std::string logAnchor_;
  std::optional<Point> pendingHome_;
  bool pendingStatsReset_=false;int64_t statsAfterId_=0,statsSince_=0;double sessionSeconds_=0;
  CsvLog csv_;int64_t arrivalCursor_=0,startedAt_=0,startAfterId_=0;std::atomic<bool> decoderDone_{false};
- GridTracker gridTracker_;GridTrackerContext gridTrackerContext_;
+ GridTracker gridTracker_;GridTrackerContext gridTrackerContext_;CornerFeed cornerFeed_;
  std::string alertBands_;bool alertFT8_=true,alertFT4_=true;Alerts alerts_;int64_t lastBaseline_=0;
 };
 // Complete UTC slots only. A timestamp discontinuity or reset invalidates partial data.

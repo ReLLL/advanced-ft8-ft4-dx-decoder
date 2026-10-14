@@ -4,7 +4,6 @@
 #include <cfloat>
 
 namespace {
-const char* windows[]={"1 minute","3 minutes","5 minutes","10 minutes","15 minutes","1 hour","6 hours","24 hours","7 days","30 days","365 days","All history","Custom UTC"};
 bool text(const char* label,std::string& value){char buffer[256];std::snprintf(buffer,sizeof(buffer),"%s",value.c_str());bool changed=ImGui::InputText(label,buffer,sizeof(buffer));if(changed)value=buffer;return changed;}
 }
 
@@ -27,13 +26,16 @@ void DXNotebook::settingsWindow() {
   ImGui::TextUnformatted(pages[settingsPage_]);ImGui::Separator();bool changed=false;
   ImGui::PushItemWidth(std::min(260.f,ImGui::GetContentRegionAvail().x*.56f));
   if(settingsPage_==0){
+   changed|=ImGui::Checkbox("Corner notifications on waterfall",&cornerEnabled_);if(ImGui::IsItemHovered())ImGui::SetTooltip("Every new reception appears briefly, including repeats. The farthest reception stays below the list with its flag. Only the Farthest label is gold. New rows glow for two seconds.");
+   ImGui::BeginDisabled(!cornerEnabled_);changed|=ImGui::SliderInt("Notification duration (seconds)",&cornerSeconds_,2,120);ImGui::EndDisabled();
+   int distanceUnit=distanceMiles_?1:0;const char* units[]={"Kilometers (km)","Miles (mi)"};if(ImGui::Combo("Distance units",&distanceUnit,units,2)){distanceMiles_=distanceUnit==1;changed=true;}
    const char* views[]={"Map + table","Table only","Map only"};changed|=ImGui::Combo("View",&view_,views,3);
-   changed|=ImGui::Checkbox("Link map and table filters",&link_);changed|=ImGui::Checkbox("Show latest messages",&messages_);
-   ImGui::TextWrapped("%s","Each launch starts with clear views and fresh session times.");
-   ImGui::Separator();changed|=ImGui::Combo("Table time window",&tableTime_,windows,13);changed|=ImGui::Combo("Map time window",&mapTime_,windows,13);
-   ImGui::Spacing();ImGui::TextUnformatted("Custom UTC range");
+   changed|=ImGui::Checkbox("Link map and table filters",&link_);
+   ImGui::TextWrapped("%s","By default, each launch starts with clear views and fresh session times. Saved history can be enabled in History.");
+   ImGui::Separator();changed|=timeWindow("Table time window",tableTime_);changed|=timeWindow("Map time window",mapTime_);
+   ImGui::BeginDisabled(historyAll_);ImGui::Spacing();ImGui::TextUnformatted("Custom UTC range");
    changed|=ImGui::InputText("From UTC",customSince_,sizeof(customSince_));changed|=ImGui::InputText("To UTC",customUntil_,sizeof(customUntil_));ImGui::TextDisabled("YYYY-MM-DD HH:MM:SS");
-   if(ImGui::Button("Use range for table and map")){tableTime_=mapTime_=12;changed=true;}
+   if(ImGui::Button("Use range for table and map")){tableTime_=mapTime_=12;changed=true;}ImGui::EndDisabled();
   }else if(settingsPage_==1){
    ImGui::TextUnformatted("Enabled modes");changed|=ImGui::Checkbox("FT8",&ft8_);ImGui::SameLine();changed|=ImGui::Checkbox("FT4",&ft4_);
    ImGui::Spacing();ImGui::TextUnformatted("Custom frequencies");ImGui::InputText("Dial frequency in Hz",customDial_,sizeof(customDial_));
@@ -69,11 +71,12 @@ void DXNotebook::settingsWindow() {
    if(ImGui::CollapsingHeader("Table filters",ImGuiTreeNodeFlags_DefaultOpen))changed|=filterEditor(tableFilter_,"table");
    if(ImGui::CollapsingHeader("Map filters"))changed|=filterEditor(mapFilter_,"map");
   }else if(settingsPage_==5){
-   if(tableCleared_&&ImGui::Button("Restore table history")){tableCleared_=0;changed=true;}if(mapCleared_&&ImGui::Button("Restore map history")){mapCleared_=0;changed=true;}
+   changed|=historyOptions();ImGui::TextWrapped("Saved history loads in the background. Filters still apply; uptime remains this session. Both options start off.");ImGui::Separator();ImGui::BeginDisabled(historyAll_);if(tableCleared_&&ImGui::Button("Restore table history")){tableCleared_=0;changed=true;}if(mapCleared_&&ImGui::Button("Restore map history")){mapCleared_=0;changed=true;}ImGui::EndDisabled();
    ImGui::TextUnformatted("History and export");ImGui::TextWrapped("Exports use the current table filters and time window.");
    if(ImGui::Button("Export table CSV"))engine_->exportData(tableQuery_,root_/"Advanced FT8-FT4 DX Decoder.csv",true);
    if(ImGui::Button("Export table JSON"))engine_->exportData(tableQuery_,root_/"Advanced FT8-FT4 DX Decoder.json",false);
-   ImGui::Separator();ImGui::TextUnformatted("Persistent reception CSV log");ImGui::TextWrapped("Clear and startup can reset views and session stats. All receptions remain in the CSV log. Commas, quotes and line breaks are preserved.");
+   auto moderation=engine_->snapshot();ImGui::Separator();ImGui::Text("Ignored identities: %zu | messages: %zu",moderation->ignoredCalls.size(),moderation->ignoredMessages.size());if(!moderation->ignoredCalls.empty()||!moderation->ignoredMessages.empty()){std::string calls;for(const auto& call:moderation->ignoredCalls){if(!calls.empty())calls+=", ";calls+=call;}if(!calls.empty())ImGui::TextWrapped("%s",calls.c_str());for(const auto& message:moderation->ignoredMessages)ImGui::TextWrapped("\"%s\"",message.c_str());if(ImGui::Button("Unignore all")){engine_->unignoreAll();tableFilter_.excludeCall.clear();mapFilter_.excludeCall.clear();changed=true;}ImGui::TextWrapped("Unignore all allows future receptions; deleted records stay deleted.");}
+   ImGui::Separator();ImGui::TextUnformatted("Persistent reception CSV log");ImGui::TextWrapped("Clear and startup can reset views and session stats. Ignore transmitter, after confirmation, deletes that transmitter's saved receptions. Commas, quotes and line breaks are preserved.");
    ImGui::SetNextItemWidth(std::max(150.f,ImGui::GetContentRegionAvail().x-70));if(ImGui::InputText("CSV file",csvPath_,sizeof(csvPath_),ImGuiInputTextFlags_EnterReturnsTrue)&&csvPath_[0]){csvLogPath_=csvPath_;changed=true;}
    if(ImGui::Button("Choose CSV file...")){if(auto path=dx::chooseCsvLog(csvLogPath_)){csvLogPath_=*path;std::snprintf(csvPath_,sizeof(csvPath_),"%s",path->c_str());changed=true;}}
    ImGui::TextDisabled("Press Enter to apply a typed path.");if(ImGui::InputInt("Maximum size (MB)",&csvMaxMb_)){csvMaxMb_=std::clamp(csvMaxMb_,1,4096);changed=true;}

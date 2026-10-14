@@ -5,13 +5,22 @@
 #include <cstring>
 #include "alerts.h"
 namespace dx {
-std::vector<unsigned char> homeIconPixels(){@autoreleasepool{
+namespace {
+std::vector<unsigned char> emojiPixels(NSString* glyph){@autoreleasepool{
  NSBitmapImageRep* bitmap=[[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil pixelsWide:64 pixelsHigh:64 bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bitmapFormat:0 bytesPerRow:256 bitsPerPixel:32];if(!bitmap)return {};
  std::memset(bitmap.bitmapData,0,64*256);[NSGraphicsContext saveGraphicsState];[NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:bitmap]];
- NSFont* font=[NSFont fontWithName:@"Apple Color Emoji" size:54]?:[NSFont systemFontOfSize:54];NSString* glyph=@"🏠";NSDictionary* attributes=@{NSFontAttributeName:font};NSSize size=[glyph sizeWithAttributes:attributes];[glyph drawAtPoint:NSMakePoint((64-size.width)/2,(64-size.height)/2) withAttributes:attributes];[NSGraphicsContext restoreGraphicsState];
+ NSFont* font=[NSFont fontWithName:@"Apple Color Emoji" size:54]?:[NSFont systemFontOfSize:54];NSDictionary* attributes=@{NSFontAttributeName:font};NSSize size=[glyph sizeWithAttributes:attributes];[glyph drawAtPoint:NSMakePoint((64-size.width)/2,(64-size.height)/2) withAttributes:attributes];[NSGraphicsContext restoreGraphicsState];
  std::vector<unsigned char> pixels(bitmap.bitmapData,bitmap.bitmapData+64*256);[bitmap release];
  // AppKit renders premultiplied alpha; ImGui's blend expects straight RGBA.
  for(size_t i=0;i<pixels.size();i+=4)if(pixels[i+3])for(int c=0;c<3;c++)pixels[i+c]=uint8_t(std::min(255u,unsigned(pixels[i+c])*255/unsigned(pixels[i+3])));return pixels;
+}}
+}
+std::vector<unsigned char> homeIconPixels(){return emojiPixels(@"🏠");}
+std::vector<unsigned char> trophyIconPixels(){return emojiPixels(@"🏆");}
+std::vector<unsigned char> flagIconPixels(const std::string& code){@autoreleasepool{
+ if(code.empty())return emojiPixels(@"🏳️");
+ if(code.size()!=2||code[0]<'A'||code[0]>'Z'||code[1]<'A'||code[1]>'Z')return {};
+ unichar chars[]={0xD83C,unichar(0xDDE6+code[0]-'A'),0xD83C,unichar(0xDDE6+code[1]-'A')};return emojiPixels([NSString stringWithCharacters:chars length:4]);
 }}
 bool playAlertSound(const std::string& name){@autoreleasepool{
  if(name=="None")return true;bool known=false;for(auto preset:alertSoundNames)if(name==preset)known=true;if(!known)return false;

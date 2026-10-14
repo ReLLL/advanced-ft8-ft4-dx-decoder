@@ -9,7 +9,7 @@ inline std::string alertTone(const Json& sounds,const std::string& kind){
  auto it=sounds.find(kind);auto tone=it!=sounds.end()&&it->is_string()?it->get<std::string>():std::string(fallback);
  for(auto name:alertSoundNames)if(tone==name)return tone;return fallback;
 }
-struct AlertPolicy {Filter filter;int64_t seconds=3600;bool distance=true,station=false,country=false,grid=false,watch=false,sound=false;std::string watchCalls;Json sounds=Json::object();};
+struct AlertPolicy {Filter filter;int64_t seconds=3600;bool distance=true,station=false,country=false,grid=false,watch=false,sound=false,miles=false;std::string watchCalls;Json sounds=Json::object();};
 struct Alert {std::string text;bool sound=false;int64_t utc=0;std::string tone;};
 class Alerts {
 public:
@@ -24,7 +24,7 @@ public:
   }
   for(auto& d:batch)if(d.source=="live")watermark_=std::max(watermark_,d.utc+1);
   if(!candidate||now-lastAlert_<30)return {};lastAlert_=now;
-  auto text=reason+": "+candidate->identity.transmitter;if(candidate->km)text+=" "+std::to_string(int(*candidate->km))+" km";auto tone=alertTone(policy.sounds,kind);return Alert{text,policy.sound&&tone!="None",candidate->utc,tone};
+  auto text=reason+": "+candidate->identity.transmitter;if(candidate->km)text+=" "+distanceSummary(*candidate->km,policy.miles);auto tone=alertTone(policy.sounds,kind);return Alert{text,policy.sound&&tone!="None",candidate->utc,tone};
  }
  void suppressBefore(int64_t utc){watermark_=utc;}
 private:

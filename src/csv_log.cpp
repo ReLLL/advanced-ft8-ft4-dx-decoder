@@ -1,5 +1,6 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "csv_log.h"
+#include "helper_client.h"
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -13,13 +14,18 @@ namespace {
 std::string field(const std::string& value){std::string out="\"";for(char c:value){if(c=='\"')out+='\"';out+=c;}return out+'\"';}
 std::string stamp(int64_t utc){time_t time=utc;tm date{};gmtime_r(&time,&date);char value[32];strftime(value,sizeof(value),"%Y-%m-%dT%H:%M:%SZ",&date);return value;}
 struct File {int fd=-1;explicit File(const std::filesystem::path& path,int flags):fd(open(path.c_str(),flags,0600)){if(fd<0)throw std::runtime_error(std::strerror(errno));}~File(){if(fd>=0)close(fd);}void write(const std::string& value){size_t offset=0;while(offset<value.size()){auto count=::write(fd,value.data()+offset,value.size()-offset);if(count<0&&errno==EINTR)continue;if(count<=0)throw std::runtime_error("CSV write failed");offset+=size_t(count);}}void flush(){if(fsync(fd)!=0)throw std::runtime_error("CSV flush failed");}};
-// A CSV record ends only at a newline outside quoted fields. Doubled quotes
-// toggle twice and therefore never expose embedded commas or newlines.
+// A CSV record ends only at a newline outside quoted fields. Preserve escaped
+// quotes while copying unchanged records verbatim.
 template<class Callback> uint64_t records(std::ifstream& input,uint64_t start,Callback callback){
- bool quoted=false;int columns=1;std::string id;uint64_t offset=start,recordStart=start;char c;
- while(input.get(c)){++offset;if(c=='\"')quoted=!quoted;else if(c==','&&!quoted)++columns;
+ bool quoted=false;int columns=1;std::string id,call,message;uint64_t offset=start,recordStart=start;char c;
+ while(input.get(c)){++offset;int fieldColumn=columns;
+  auto append=[&](char value){if(fieldColumn==5)call+=value;else if(fieldColumn==21)message+=value;};
+  if(c=='"'&&quoted&&input.peek()=='"'){input.get(c);++offset;append('"');}
+  else if(c=='"')quoted=!quoted;
+  else if(c==','&&!quoted)++columns;
+  else if(quoted||(c!='\r'&&c!='\n'))append(c);
   if(columns==1&&c!=','&&c!='\r'&&c!='\n'){if(c<'0'||c>'9'||id.size()>18)throw std::runtime_error("CSV reception ID is invalid");id+=c;}
-  if(c=='\n'&&!quoted){if(columns!=28||id.empty())throw std::runtime_error("CSV record has an invalid format");callback(recordStart,offset,std::stoll(id));recordStart=offset;columns=1;id.clear();}
+  if(c=='\n'&&!quoted){if(columns!=28||id.empty())throw std::runtime_error("CSV record has an invalid format");callback(recordStart,offset,std::stoll(id),call,message);recordStart=offset;columns=1;id.clear();call.clear();message.clear();}
   if(offset-recordStart>2*1024*1024)throw std::runtime_error("CSV record is too large");
  }
  if(!input.eof())throw std::runtime_error("CSV read failed");return recordStart;
@@ -33,20 +39,43 @@ std::string csvLogRow(int64_t id,const Decode& d){
 }
 void CsvLog::recover(){
  auto header=csvLogHeader();std::ifstream input(path_,std::ios::binary);std::string actual(header.size(),'\0');input.read(actual.data(),actual.size());if(actual!=header)throw std::runtime_error("Choose a new CSV file; this file is not a reception log");
- cursor_=0;auto end=records(input,header.size(),[&](uint64_t,uint64_t,int64_t id){if(id<=cursor_)throw std::runtime_error("CSV reception IDs are out of order");cursor_=id;});input.close();
+ cursor_=0;auto end=records(input,header.size(),[&](uint64_t,uint64_t,int64_t id,const std::string&,const std::string&){if(id<=cursor_)throw std::runtime_error("CSV reception IDs are out of order");cursor_=id;});input.close();
  if(end<std::filesystem::file_size(path_)){std::filesystem::resize_file(path_,end);File file(path_,O_WRONLY);file.flush();}bytes_=end;ready_=true;
 }
 void CsvLog::trim(uint64_t maximumBytes){
  if(bytes_<=maximumBytes)return;auto header=csvLogHeader();uint64_t target=maximumBytes*85/100,cut=0,last=header.size();std::ifstream input(path_,std::ios::binary);input.seekg(header.size());
- records(input,header.size(),[&](uint64_t start,uint64_t,int64_t){last=start;if(!cut&&bytes_-start+header.size()<=target)cut=start;});if(!cut)cut=last;
+ records(input,header.size(),[&](uint64_t start,uint64_t,int64_t,const std::string&,const std::string&){last=start;if(!cut&&bytes_-start+header.size()<=target)cut=start;});if(!cut)cut=last;
  auto temporary=path_;temporary+=".trimming-"+std::to_string(getpid());std::error_code error;if(std::filesystem::exists(temporary))throw std::runtime_error("CSV temporary file already exists");
  try{File output(temporary,O_WRONLY|O_CREAT|O_EXCL);output.write(header);input.clear();input.seekg(cut);char buffer[65536];while(input.read(buffer,sizeof(buffer))||input.gcount()){output.write(std::string(buffer,size_t(input.gcount())));}if(!input.eof())throw std::runtime_error("CSV trim read failed");output.flush();input.close();std::filesystem::rename(temporary,path_);bytes_=header.size()+bytes_-cut;}catch(...){std::filesystem::remove(temporary,error);throw;}
+}
+int64_t CsvLog::purge(Store& store,const std::filesystem::path& path,const std::string& call,int64_t throughId){return purge(store,path,IgnoreTarget{upper(call),false},throughId);}
+int64_t CsvLog::purge(Store& store,const std::filesystem::path& path,const IgnoreTarget& target,int64_t throughId){
+ auto resolved=std::filesystem::absolute(path).lexically_normal();if(!std::filesystem::exists(resolved))return 0;
+ if(std::filesystem::is_symlink(resolved))throw std::runtime_error("CSV purge refuses a symbolic link");
+ auto header=csvLogHeader();std::ifstream input(resolved,std::ios::binary),copy(resolved,std::ios::binary);std::string actual(header.size(),'\0');input.read(actual.data(),actual.size());if(actual!=header)throw std::runtime_error("CSV purge refuses an unrecognized log header");
+ auto temporary=resolved;temporary+=".purging-"+std::to_string(getpid())+"-"+std::to_string(monotonicMs());int64_t removed=0,lastId=0;bool created=false;std::error_code error;
+ try{File output(temporary,O_WRONLY|O_CREAT|O_EXCL);created=true;output.write(header);
+  auto end=records(input,header.size(),[&](uint64_t start,uint64_t finish,int64_t id,const std::string& transmitter,const std::string& message){
+   if(id<=lastId)throw std::runtime_error("CSV reception IDs are out of order");lastId=id;
+   if(id<=throughId&&upper(target.message?message:transmitter)==target.value){++removed;return;}
+   copy.clear();copy.seekg(start);std::string record(size_t(finish-start),'\0');copy.read(record.data(),record.size());if(size_t(copy.gcount())!=record.size())throw std::runtime_error("CSV purge read failed");output.write(record);
+  });
+  if(end!=std::filesystem::file_size(resolved))throw std::runtime_error("CSV purge found an incomplete record");
+  output.flush();input.close();copy.close();
+  if(!removed){std::filesystem::remove(temporary);return 0;}
+  // Keep the original append watermark when deletion removes a trimmed log's tail.
+  // Save it before rename so a crash cannot resurrect previously trimmed records.
+  auto floors=store.getSetting("csv_floors",Json::object());floors[resolved.string()]=std::max(floors.value(resolved.string(),int64_t(0)),lastId);store.setSetting("csv_floors",floors);
+  std::filesystem::rename(temporary,resolved);if(path_==resolved)ready_=false;return removed;
+ }catch(...){if(created)std::filesystem::remove(temporary,error);throw;}
 }
 bool CsvLog::sync(Store& store,const std::filesystem::path& path,uint64_t maximumBytes){
  if(maximumBytes<1024*1024)throw std::runtime_error("CSV limit must be at least 1 MB");auto resolved=std::filesystem::absolute(path).lexically_normal();if(resolved.filename().empty())throw std::runtime_error("Choose a CSV filename");
  if(path_!=resolved){path_=resolved;ready_=false;cursor_=0;bytes_=0;}
  if(!std::filesystem::exists(path_)){std::filesystem::create_directories(path_.parent_path());File file(path_,O_WRONLY|O_CREAT|O_EXCL);file.write(csvLogHeader());file.flush();ready_=false;}
  if(!ready_||std::filesystem::file_size(path_)!=bytes_)recover();
+ auto floors=store.getSetting("csv_floors",Json::object());cursor_=std::max(cursor_,floors.value(path_.string(),int64_t(0)));
+ auto paths=store.getSetting("csv_paths",Json::array());if(std::find(paths.begin(),paths.end(),path_.string())==paths.end()){paths.push_back(path_.string());store.setSetting("csv_paths",paths);}
  auto page=store.logRows(cursor_,256);std::string buffer;int64_t next=cursor_;
  for(const auto& entry:page){auto row=csvLogRow(entry.first,entry.second);if(row.size()+csvLogHeader().size()>maximumBytes)throw std::runtime_error("Increase the CSV size limit to fit this reception");if(!buffer.empty()&&buffer.size()+row.size()>1024*1024)break;buffer+=row;next=entry.first;}
  if(!buffer.empty()){try{File file(path_,O_WRONLY|O_APPEND);file.write(buffer);file.flush();bytes_+=buffer.size();cursor_=next;}catch(...){ready_=false;throw;}}

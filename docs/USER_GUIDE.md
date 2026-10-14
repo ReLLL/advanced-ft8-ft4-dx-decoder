@@ -10,9 +10,41 @@ FT8 slots last 15 seconds; FT4 slots last 7.5 seconds. A complete slot is needed
 
 ## Statistics and saved history
 
-Countries and stations count unique received identities. Country names use Brown's callsign/DXCC tables; they cannot establish exact transmitter coordinates. **Farthest** includes the country in parentheses. **UPTIME** shows active decoding time for this session, excluding stopped time. **Last 5 min** counts distinct recent callsigns; **Latest heard** shows the latest five distinct calls, country, approximate distance and SNR.
+Countries and stations count unique received identities. Country names come from the transmitting callsign through Brown's local `cty.dat` DXCC database. Exact callsign exceptions take priority, then the longest matching prefix; portable operating prefixes can override a home callsign. FT8/FT4 does not transmit a separate country field. This identifies a callsign's DXCC entity and cannot establish exact transmitter coordinates. **Farthest** includes the country in parentheses. **UPTIME** shows active decoding time for this session, excluding stopped time. **Last 5 min** counts distinct recent callsigns; **Latest heard** shows the latest five distinct calls, country, approximate distance and SNR.
 
 **Use saved history for stats** starts unchecked. Off counts only receptions received since this session started or session statistics were reset. On uses all retained database receptions, including imported history. The worker calculates the new values in the background and the previous values remain visible until ready. Uptime remains session-based. This preference is saved; turn it off to return to session statistics. It does not restore table/map entries or first-heard times.
+
+**Use saved history for everything** also starts unchecked. Enable it to restore retained receptions into statistics, map markers and table rows together. First-heard columns use the first retained reception timestamps. Loading runs in the background; filters and table sorting still apply. Both time windows show All history while enabled, and uptime remains this session's active decoding time. The preference is saved, so enabling it also restores history after restart. Turning it off returns to session views and the previous statistics preference. Both checkboxes are available above the map/table and in Settings > History. Live decoding continues with either option checked: new receptions update the table, map and statistics and are saved to SQLite history and the CSV log.
+
+## Window and reception views
+
+Closing the decoder window hides its interface. Reception, uptime, logging, alerts, GridTracker forwarding and snapshots continue while the sidebar switch is enabled, the SDR is running and reception is not paused. The sidebar shows Receiving in background. Open brings the window to the front, refreshes current filters and preserves its size and position. The sidebar switch disables reception; closing the window does not reset statistics or data.
+
+The table area has three tabs with shared time, search and reception filters:
+
+- Unique stations keeps one latest matching row per sender. Its default sort is newest Station first heard.
+- All messages shows each retained reception, including repeated messages and senders, newest UTC first. Equal timestamps use arrival order. It adds UTC date/time and Source to the decoder fields; the count column is hidden because each row is one reception. Its green/gold values and nine-second arrival highlight match Unique stations.
+- Countries heard groups the latest matching reception of each distinct sender by country. It shows station count, mean distance, mean SNR, the latest five distinct senders and time since the last reception. Unknown distances are excluded from the distance mean. SNR is the arithmetic mean of receiver estimates in dB, not combined signal power. Repeated messages do not add weight. Unresolved sender hashes are excluded from station averages. The tooltip states how many senders supplied distance evidence.
+
+Each tab remembers its sort, column order, widths and visibility. Countries heard initially sorts latest reception first. Exports follow the active tab. Clear and its confirmation still apply to the table/map views and optional statistics reset, across all tabs.
+
+## Waterfall corner notifications
+
+Settings > General > Corner notifications on waterfall starts on and saves its preference. The corner remains visible when the decoder window is closed. Every new reception gets its own row, including repeated messages and senders: flag, country, sender, approximate distance, receiver SNR and the full quoted message in italics. Countries use green, senders blue and distances orange; SNR and messages use neutral text. New rows glow in and out for two seconds. Newest arrivals appear first. Rows expire after 10 seconds by default; Notification duration in General settings allows 2-120 seconds. There is no four-row limit.
+
+The farthest reception in the selected statistics scope stays below the notification list. Its row includes a trophy and country flag. Only the word Farthest is gold; the remaining fields use the usual colors. Flags use ISO region codes from the bundled Natural Earth data and existing DXCC outline aliases; unmapped entities use a neutral flag. A flag identifies the displayed region, not an operator's nationality.
+
+Long reception lists scroll vertically; long full messages scroll horizontally and are also available on hover. Corner scrolling does not tune the waterfall. Expiry removes only notifications; table, map, statistics and persistent logs retain the reception. Saved history can restore the farthest record but does not replay old receptions as notifications. Clear with Reset stats clears the notification feed too.
+
+## Flags, details and distance units
+
+Country names in Unique stations, All messages, Countries heard and the details history have flags before them. Existing green/gold country highlights remain unchanged.
+
+Station details show separate colors for sender, country, distance, received signal, mode/grid and message. The close button stays at the right. Reception history is a table with UTC, sender, target, country, grid, SNR, Distance, mode/band, full message and source.
+
+Double-click a Countries heard row to open all its matching messages in the details pane, newest first, including repeats. The current table filters, time window and saved-history choice apply. New matching receptions update this pane in the background. Older messages loads the next 500 receptions.
+
+Settings > General > Distance units offers Kilometers (km), the default, and Miles (mi). The choice is remembered. Distance columns, country averages, farthest statistics, latest-heard summaries, map tips, details, alerts and waterfall notifications use the selected unit. Distance filters show and accept that unit; changing units preserves their physical limits. Sorting uses the same underlying distances. CSV/JSON exports and reception logs keep their explicitly named kilometer fields for compatibility. Distances remain approximate received-grid-center short paths in either unit.
 
 ## Table timestamps and sorting
 
@@ -22,13 +54,15 @@ Countries and stations count unique received identities. Country names use Brown
 | Msg age | Time since the latest received message. Repeated receptions refresh it. |
 | Msg first heard | First reception of this exact message from this callsign during the visible session. Repeats retain it. |
 
-These values show elapsed seconds; hover shows the original UTC date/time. **Station first heard** appears before **Msg age**. All three align right. The default sort places newly heard stations first, using their first-heard timestamps. Click any column header to change the sort. Columns can be resized, reordered and hidden; horizontal scrolling reveals extra columns.
+These values show elapsed seconds; hover shows the original UTC date/time. With saved history for everything enabled, the first-heard times use retained history rather than this session. **Station first heard** appears before **Msg age**. All three align right. The default sort places newly heard stations first, using their first-heard timestamps. Click any column header to change the sort. Drag headers to reorder columns and drag their edges to resize. Right-click a header to show or hide columns. Order, widths, visibility and sorting are saved across restarts; horizontal scrolling reveals extra columns. Sender identifies the transmitter. Target shows the addressed callsign, or -- for a general call or no target. Mod shows FT8 or FT4 for the latest matching reception. Target and Mod initially appear last, in that order.
 
-**Every message** shows individual decodes. Otherwise the table groups each station/frequency/mode and shows its latest matching decode. Right-click a row for lookup, copying, watch-list and other station actions. Selecting a row opens details; **Close details** sits at the right edge.
+The table shows **one row per callsign** across all matching bands, modes and dial frequencies. Its message, SNR, band, mode, distance and other reception fields come from the latest matching decode. Rows without a transmitter identity group by exact message text. Individual receptions remain in saved logs and station details. Right-click a row for lookup, copying, watch-list and other station actions. Selecting a row opens details; **Close details** sits at the right edge.
+
+The Message cell updates with the newest matching reception from that station. If timestamps tie, the last arrival wins. Filters apply before selecting the latest row: filtering to 40m shows that station's latest 40m reception. Two receptions on nearby FT4 dial frequencies appear in one station row. All individual receptions remain logged.
 
 ## Colors and distance evidence
 
-- Green country: the first reception from that country during the current statistics session.
+- Green country: any station from one of the three most recently discovered countries. Discovery order follows each country's first arrival in the statistics session; repeats and new stations from an already heard country do not promote it. A fourth new country returns the oldest marker to normal text. With saved history for everything enabled, discovery uses all retained receptions. Every displayed station row from those three countries stays green as messages update. Gold takes precedence for the farthest station.
 - Bold gold country and distance: the farthest station in the selected statistics scope. Gold takes precedence over green.
 - Fading green row: just received message, fading over nine seconds.
 - Light-green age and map halo: the latest reception batch, until a newer batch arrives.
@@ -37,6 +71,10 @@ These values show elapsed seconds; hover shows the original UTC date/time. **Sta
 Distances are approximate great-circle distances between Maidenhead grid centers. A four-character grid represents an area, so its center is not a surveyed transmitter location. No tilde is shown. `*` before a distance means the same callsign's most recent directly received grid was reused, for up to six hours. Repeated nongrid messages never renew the evidence time. No recent grid means unknown distance.
 
 Another decoder may use a country or regional reference point and report a different distance. This plugin uses received grid evidence. Germany is displayed under that short name throughout the interface and new logs.
+
+Hover over home to see the configured Maidenhead grid and its center coordinates; station hover shows its received grid center coordinates. Changing the home grid recalculates saved table distances, bearings and farthest statistics in the background. Existing CSV entries keep the values recorded at reception time.
+
+For example, KM69 (39.5 N, 33.0 E) to NO35 (55.5 N, 87.0 E) is 4,296.4 km on the mean-radius sphere. The [ARRL grid-distance calculator](https://contests.arrl.org/griddistancecalc.php) gives 4,296.5 km using a slightly different Earth radius. These are geographic short-path distances; the radio signal's actual ionospheric path is not measured.
 
 ## Map and communication arcs
 
@@ -56,11 +94,17 @@ Visible online tiles download in the background with four parallel requests and 
 
 The cache respects provider expiry and no-store directives. Stale cached tiles remain usable during network failure. It is not an all-zoom offline download: only visited tiles are cached, with eviction as the limit is reached. The bundled world map works without a network. Provider credits stay visible on the map.
 
+Right-click a station marker or table row for the same station menu: Google, QRZ, HamQTH, copying, favorites and Ignore transmitter. **Look up addressed station** opens the same three providers for the target callsign in an exchange message. General calls and unresolved target identifiers do not offer a callsign lookup. When nearby entries share a marker, the menu applies to the latest reception represented by that marker.
+
+**Ignore transmitter** opens a confirmation naming the displayed transmitter identity and log paths. It accepts valid, unresolved and malformed identities. Confirming removes matching receptions on every band and mode from the table, map, statistics, SQLite history and known reception CSV logs, and blocks matching future receptions. An unresolved hash is matched as the displayed identifier; it may be reused by different stations. If a row has no transmitter identity, the confirmation instead names its exact message: repetitions of that text are removed and ignored across bands and modes, while other unidentified messages are kept. Message text alone cannot identify a sender. Uptime is retained. Cancel leaves data unchanged. **Unignore all** in the station menu or Settings > History allows future receptions; deleted records stay deleted.
+
+Log cleanup runs in the background. A failed file write remains visible and retries, including after restart. Cleanup covers the current/default reception log and prior log locations recorded by this version. It does not edit other decoders' input logs, exported snapshots or unmanaged CSV copies.
+
 ## Filters, clear and logs
 
-Band, FT8/FT4 and message-type controls sit above both views. CQ/general call includes CQ and QRZ. Two-way exchange means a message addressed to another station. Filters provide callsign, prefix, country, grid, frequency, distance, SNR and exclusion options. Link map/table filters when desired.
+Band, FT8/FT4 and message-type controls sit above both views. CQ/general call includes CQ and QRZ. Two-way exchange means a message addressed to another station. Filters provide Sender, Target, Mod, prefix, country, continent, grid, band, dial frequency, message text, protocol meaning and exclusions. Column value ranges add optional minimum/maximum limits for SNR, distance, dial MHz, audio Hz, signed DT, bearing, reception count, Msg age and both first-heard ages. Age limits use seconds ago and update with time. Unknown values fail an enabled range; limits are inclusive. Text, band, mode and existing reception filters select matching receptions before choosing the latest row. Column value ranges then test the displayed row, so they never substitute an older matching decode. Reception count counts matching receptions; first-heard times retain their session/history scope. Alerts use reception values and omit station-count/age ranges. Link map/table filters when desired.
 
-**Clear** asks for confirmation. **Reset stats** is the first option and starts checked. Select table, map or both. Clearing hides prior rows and starts new visible first-heard times; it keeps the reception database and CSV. If saved-history statistics are enabled, old history still contributes to those totals. Uncheck that option for a zeroed session count. Brown restart also starts empty views. Settings > History can explicitly restore retained rows.
+**Clear** asks for confirmation. **Reset stats** is the first option and starts checked. Select table, map or both. Clearing hides prior rows and starts new visible first-heard times; it keeps the reception database and CSV. Reset stats turns off both saved-history options, so totals return to zero. Without Reset stats, earlier rows are hidden only in selected views and saved history still contributes to enabled history statistics. Turn Use saved history for everything off and on to restore all retained rows. Brown restart starts empty views by default; enabling history for everything restores retained rows instead. Settings > History also has individual restore buttons.
 
 Settings > History selects the CSV location and maximum megabytes. At the limit, the oldest complete CSV records are trimmed; Clear does not trim it. CSV supports commas, quotes and embedded line breaks. It includes UTC date/time, reception ID, identities, country, grid evidence, band/mode, frequencies, SNR, DT, distance, bearing and full message/raw text. The retained SQLite database is separate from the CSV size limit.
 
