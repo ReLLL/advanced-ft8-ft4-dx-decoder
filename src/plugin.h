@@ -30,7 +30,7 @@ struct DXChannel {
  DXChannel(DXNotebook*,dx::Preset,double center);~DXChannel();
  static void audio(dsp::stereo_t*,int,void*);
 };
-struct MapView {double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true;float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;};
+struct MapView {double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true,snrColors=false;float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;};
 class DXNotebook:public ModuleManager::Instance {
 public:
  explicit DXNotebook(std::string name);~DXNotebook();void postInit()override{}
@@ -58,7 +58,7 @@ private:
 #if DX_HOST_BROWN
  EventHandler<ImGui::WaterFall::WaterfallDrawArgs> cornerHandler_;
 #endif
- void sidebar();void draw();void openWindow();void closeWindow();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void stationMenu(const dx::Decode&,const std::vector<dx::Row>&);void ignoreConfirmation();void filters(dx::Filter&,const char*);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details();void save();void refresh();bool historyOptions(bool compact=false);bool timeWindow(const char* label,int& choice);void migration();
+ void sidebar();void draw();void openWindow();void closeWindow();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void stationMenu(const dx::Decode&,const std::vector<dx::Row>&);void ignoreConfirmation();void filters(dx::Filter&,const char*);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details();void save();void refresh(bool changed=true);bool historyOptions(bool compact=false);bool timeWindow(const char* label,int& choice);void migration();
  std::pair<std::string,std::string> lookupCountry(const std::string& call)const;
  std::string name_;std::filesystem::path root_;std::unique_ptr<dx::Engine> engine_;dx::Point home_;DXCountryDatabase countries_;
 #if !DX_HOST_BROWN
@@ -68,7 +68,7 @@ private:
  bool link_=false;int view_=0,tableTime_=2,mapTime_=4,sort_=17;bool descending_=true;float split_=.53f;
  double center_=0,rate_=0,lastRefresh_=0;uint64_t generation_=1;ImVec2 windowMin_,windowMax_;
  std::vector<std::unique_ptr<DXChannel>> channels_;std::vector<dx::Preset> presets_=dx::presets();
- dx::Filter tableFilter_,mapFilter_;dx::Query tableQuery_,mapQuery_;std::optional<dx::Decode> selected_;MapView mapView_;
+ dx::Filter tableFilter_,mapFilter_;dx::Query tableQuery_,mapQuery_;std::optional<dx::Decode> selected_,detailsContext_;MapView mapView_;
  std::vector<std::vector<dx::Point>> world_;struct CountryLabel{std::string name;dx::Point point;};std::vector<CountryLabel> labels_;
  struct MapCountry{std::string name;std::vector<std::string> keys;std::vector<std::vector<std::vector<dx::Point>>> polygons;std::vector<dx::CountryMesh> offlineMeshes,onlineMeshes;dx::Point label;size_t labelPolygon=0;};std::vector<MapCountry> mapCountries_;
  std::vector<std::string> highlightedCountries_;std::vector<bool> heardCountryOutlines_;
@@ -81,7 +81,7 @@ private:
  std::vector<dx::TableColumnSetting> tableColumns_;bool tableColumnsApplied_=false;
  ImVec2 settingsMin_,settingsMax_;std::string settingsError_;
  int clearTarget_=0;bool clearRequested_=false,clearStats_=true;int64_t tableCleared_=0,mapCleared_=0;unsigned int homeIcon_=0;
- bool clearOnStart_=true,statsHistory_=false,historyAll_=false;int64_t historyTableCleared_=0,historyMapCleared_=0;int directionStations_=5,directionMinutes_=15,csvMaxMb_=100;char csvPath_[4096]="";
+ bool clearOnStart_=true,statsHistory_=false,historyAll_=false;int64_t historyTableCleared_=0,historyMapCleared_=0;int directionStations_=5,csvMaxMb_=100;char csvPath_[4096]="";
  std::string csvLogPath_;
  std::optional<dx::IgnoreTarget> ignoreRequested_;dx::IgnoreTarget ignoreTarget_;bool ignoreWaiting_=false;std::optional<dx::Decode> mapContext_;
  bool gridTrackerEnabled_=false,gridTrackerReplay_=true;int gridTrackerPort_=2237,gridTrackerMinutes_=30;char gridTrackerAddress_[64]="127.0.0.1";std::string gridTrackerHost_="127.0.0.1";

@@ -31,19 +31,22 @@ void DXNotebook::details(){
   ImGui::TextDisabled("Source: %s | Identity: %s | Grid: %s",d.source.c_str(),d.identitySource.c_str(),d.gridSource.empty()?"unavailable":d.gridSource.c_str());ImGui::Separator();
  }
  ImGui::TextDisabled("Distances: %s",dx::distanceUnit(distanceMiles_));
+ const auto menuId=ImGui::GetID("details_station_actions");
  if(snapshot->detailsCountry!=selectedCountry_){ImGui::TextDisabled("Loading receptions...");ImGui::EndChild();return;}
  if(snapshot->details.empty())ImGui::TextDisabled("No matching receptions in this view.");
  else if(ImGui::BeginTable("details_history",10,ImGuiTableFlags_ScrollX|ImGuiTableFlags_ScrollY|ImGuiTableFlags_RowBg|ImGuiTableFlags_Resizable,{0,std::max(55.f,ImGui::GetContentRegionAvail().y-(snapshot->details.size()==500?30.f:0.f))})){
   const char* labels[]={"UTC","Sender","Target","Country","Grid","SNR dB","Distance","Mode / band","Message","Source"};const float widths[]={155,95,95,150,60,65,90,85,260,70};for(int i=0;i<10;i++)ImGui::TableSetupColumn(labels[i],ImGuiTableColumnFlags_WidthFixed,widths[i]);ImGui::TableSetupScrollFreeze(0,1);ImGui::TableHeadersRow();
   ImGuiListClipper clipper;clipper.Begin(int(snapshot->details.size()));while(clipper.Step())for(int i=clipper.DisplayStart;i<clipper.DisplayEnd;i++){
-   const auto& h=snapshot->details[size_t(i)];ImGui::PushID(i);ImGui::TableNextRow();ImGui::TableNextColumn();ImGui::TextDisabled("%s",utc(h.utc).c_str());
+   const auto& h=snapshot->details[size_t(i)];ImGui::PushID(i);ImGui::TableNextRow();ImGui::TableNextColumn();auto at=ImGui::GetCursorPos();ImGui::Selectable("##details_row",false,ImGuiSelectableFlags_SpanAllColumns|ImGuiSelectableFlags_AllowItemOverlap);
+   if(ImGui::IsItemHovered()&&ImGui::IsMouseReleased(1)){detailsContext_=h;ImGui::OpenPopup(menuId);}ImGui::SetCursorPos(at);ImGui::TextDisabled("%s",utc(h.utc).c_str());
    ImGui::TableNextColumn();ImGui::TextColored(senderColor,"%s",h.identity.transmitter.empty()?"--":h.identity.transmitter.c_str());ImGui::TableNextColumn();auto target=dx::targetCall(h.identity);ImGui::TextColored(senderColor,"%s",target.empty()?"--":target.c_str());
    ImGui::TableNextColumn();countryFlag(h.country);ImGui::TextColored(countryColor,"%s",h.country.empty()?"Unknown":h.country.c_str());ImGui::TableNextColumn();ImGui::TextColored(modeColor,"%s",h.identity.grid.c_str());
    ImGui::TableNextColumn();char number[32];std::snprintf(number,sizeof(number),"%+d",h.snr);right(number,signalColor);if(ImGui::IsItemHovered())ImGui::SetTooltip("Receiver SNR: %+d dB | Audio: %d Hz | DT: %+.1f s",h.snr,h.audio,h.dt.value_or(0));
    ImGui::TableNextColumn();if(h.km)std::snprintf(number,sizeof(number),"%s%.0f",h.gridSource=="cached"?"* ":"",dx::distanceDisplay(*h.km,distanceMiles_));else std::snprintf(number,sizeof(number),"--");right(number,distanceColor);
    ImGui::TableNextColumn();ImGui::TextColored(modeColor,"%s / %s",h.mode.c_str(),dx::bandName(h.dial).c_str());ImGui::TableNextColumn();ImGui::TextColored(messageColor,"\"%s\"",h.message.c_str());if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",h.message.c_str());
-   if(ImGui::BeginPopupContextItem("history_message")){popup_=true;if(ImGui::MenuItem("Copy")){auto line=utc(h.utc)+"  "+std::to_string(h.snr)+" dB  "+h.message;ImGui::SetClipboardText(line.c_str());}ImGui::EndPopup();}ImGui::TableNextColumn();ImGui::TextDisabled("%s",h.source.c_str());ImGui::PopID();
+   ImGui::TableNextColumn();ImGui::TextDisabled("%s",h.source.c_str());ImGui::PopID();
   }ImGui::EndTable();
  }
+ if(ImGui::BeginPopup("details_station_actions")){if(detailsContext_){std::vector<dx::Row> visible;for(const auto& reception:snapshot->details)visible.push_back({reception});stationMenu(*detailsContext_,visible);}ImGui::EndPopup();}
  if(snapshot->details.size()==500&&ImGui::Button("Older messages")){detailsOffset_+=500;if(countryView)engine_->selectCountry(selectedCountry_,detailsOffset_);else engine_->select(*selected_,detailsOffset_);}ImGui::EndChild();
 }

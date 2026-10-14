@@ -6,6 +6,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_NAME = "Install Advanced FT8-FT4 DX Decoder.app"
@@ -36,6 +37,7 @@ def add_payload(package, contents, folder, binary_folder, host_app, version):
     manifest = {"version": version, "hostBundleID": host_info["CFBundleIdentifier"],
         "hostVersion": host_info["CFBundleVersion"],
         "hostCoreSHA256": hashlib.sha256((host_app / "Contents/Frameworks/libsdrpp_core.dylib").read_bytes()).hexdigest(),
+        "hostLibraries": sorted({name for binary in ["dx_notebook.dylib", "dx_decoder"] for name in re.findall(r"@rpath/([^\s]+\.dylib)", subprocess.check_output(["otool", "-L", str(package / binary_folder / binary)], text=True))}),
         "files": {name: hashlib.sha256((payload / name).read_bytes()).hexdigest() for name in sources}}
     (payload / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -44,7 +46,7 @@ def build_installer(package, version, identity, brown_app, sdrpp_app=None):
     # Every package must pass the isolated installer rollback/integrity checks.
     with tempfile.TemporaryDirectory(prefix="dx-installer-check-") as temporary:
         test = Path(temporary) / "installer-tests"
-        subprocess.run(["xcrun", "swiftc", "-O", str(ROOT / "installer/InstallerCore.swift"),
+        subprocess.run(["xcrun", "swiftc", "-O", str(ROOT / "installer/InstallerCore.swift"), str(ROOT / "installer/GridLocator.swift"),
                         str(ROOT / "tests/installer_tests.swift"), "-o", str(test)], check=True)
         subprocess.run([str(test)], check=True)
     app = package / APP_NAME
@@ -56,6 +58,7 @@ def build_installer(package, version, identity, brown_app, sdrpp_app=None):
         "xcrun", "swiftc", "-O", "-target", "arm64-apple-macos15.0",
         "-file-prefix-map", str(ROOT) + "=.",
         str(ROOT / "installer/InstallerCore.swift"), str(ROOT / "installer/main.swift"),
+        str(ROOT / "installer/GridLocator.swift"), str(ROOT / "installer/LocationLookup.swift"),
         "-o", str(executable)
     ], check=True)
     add_payload(package, contents, "Payload", "bin", brown_app, version)
@@ -67,7 +70,9 @@ def build_installer(package, version, identity, brown_app, sdrpp_app=None):
             "CFBundleExecutable": "Installer", "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": version, "CFBundleVersion": version,
             "LSMinimumSystemVersion": "15.0", "NSHighResolutionCapable": True,
-            "NSHumanReadableCopyright": "ReLLL. GPL-3.0-or-later."}
+            "NSHumanReadableCopyright": "ReLLL. GPL-3.0-or-later.",
+            "NSLocationUsageDescription": "Suggest a Maidenhead home grid for receiver distances and bearings. Confirm or edit the suggested grid before installing.",
+            "NSLocationWhenInUseUsageDescription": "Suggest a Maidenhead home grid for receiver distances and bearings. Confirm or edit the suggested grid before installing."}
     with (contents / "Info.plist").open("wb") as stream:
         plistlib.dump(info, stream)
     for name in ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"):

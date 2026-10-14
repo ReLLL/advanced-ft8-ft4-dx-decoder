@@ -6,7 +6,11 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <array>
 namespace dx {
+// Age is presentation only; sorting/filtering always uses the original timestamp.
+std::string ageText(int64_t timestamp,int64_t referenceUtc);
+std::array<float,4> snrMapColor(double snr);
 using Json=nlohmann::json;
 struct Point {double lat=0,lon=0;};
 std::optional<Point> gridPoint(const std::string& grid);
@@ -61,6 +65,8 @@ struct Filter {
  Json json() const; static Filter fromJson(const Json& j);
 };
 struct Query {int64_t since=0,until=INT64_MAX,afterRowId=0,firstSince=0,firstAfterId=0,referenceUtc=0;Filter filter;int sort=0;bool descending=true;bool messages=false,uniqueCalls=false,countries=false;int pathCount=3,offset=0;};
+inline constexpr int activityWindowMinutes=15;
+Query recentActivityQuery(const Query& view,int64_t referenceUtc);
 struct Row {Decode decode;int64_t count=1,firstHeardUtc=0,stationFirstHeardUtc=0;};
 struct ExchangePath{std::string transmitter,called;int64_t utc=0,fromGridUtc=0,toGridUtc=0;std::vector<Point> points;};
 struct Stats {int64_t countries=0,stations=0,recentStations=0,messages=0;double farthest=0,activeSeconds=0;std::string farthestCountry,farthestCall;std::vector<Decode> latest,latestCountries;std::optional<Decode> farthestReception;std::vector<std::string> heardCountries,newestCountries;bool isNewestCountry(const std::string& country)const;};

@@ -48,10 +48,12 @@ A binary plugin is tied to the host ABI. Rebuilding for a different host require
 
 ```sh
 mkdir -p build-installer
-xcrun swiftc -O -target arm64-apple-macos15.0 installer/InstallerCore.swift tests/installer_tests.swift -o build-installer/installer-tests
+xcrun swiftc -O -target arm64-apple-macos15.0 installer/InstallerCore.swift installer/GridLocator.swift tests/installer_tests.swift -o build-installer/installer-tests
 build-installer/installer-tests
 ```
 
 Checks use isolated temporary profiles and synthetic hosts: fresh installation, repeated upgrades, settings/log preservation, executable permissions, backups, rollback at staged/plugin/configuration replacement, running host, corrupt payloads, incompatible host, malformed configuration, symlink refusal, concurrent settings changes, standard payload/country data and receiver setup. Invalid locators must fail before quitting a running host. Keep normal profiles untouched during installer tests.
 
-Inspect the packaged installer window, host selection and Cancel behavior without installing into a normal profile. Inspect both payload manifests/signatures, check the DMG, and verify downloaded release checksums. Each host fingerprint comes from its matched installed core library. Custom profiles are supported; binaries expect `/Applications/SDR++Brown.app` or `/Applications/SDR++.app` respectively. First-run preparation opens the selected host, waits for its default config, then asks it to quit normally. Existing disabled/enabled preferences are preserved on upgrades; the initial registration is enabled.
+Inspect the packaged installer window, host selection and Cancel behavior without installing into a normal profile. Inspect both payload manifests/signatures, check the DMG, and verify downloaded release checksums. Host fingerprints and versions are build provenance only. Installation checks host identity and required library files, not exact versions/fingerprints. Test acceptance of rebuilt cores and different version numbers for both hosts. Custom profiles are supported; binaries expect `/Applications/SDR++Brown.app` or `/Applications/SDR++.app` respectively. First-run preparation opens the selected host, waits for its default config, then asks it to quit normally. Existing disabled/enabled preferences are preserved on upgrades; the initial registration is enabled.
+
+Location suggestions use the installer's own macOS Location Services permission and purpose strings. Automatically attempt only for an empty grid; never overwrite a prefilled or manually edited grid. Reject stale or very coarse estimates, show accuracy, and offer manual/map entry. Raw coordinates are not saved in the profile; only the confirmed grid is installed. Location denial must not block installation.

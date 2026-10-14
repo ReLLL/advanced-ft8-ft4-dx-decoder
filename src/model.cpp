@@ -4,8 +4,25 @@
 #include <cmath>
 #include <regex>
 #include <sstream>
+#include <ctime>
 #include <fnmatch.h>
 namespace dx {
+std::string ageText(int64_t timestamp,int64_t referenceUtc){
+ if(timestamp<=0)return "--";
+ if(referenceUtc<=timestamp)return "0s ago";
+ const auto seconds=referenceUtc-timestamp;
+ if(seconds<=600)return std::to_string(seconds)+"s ago";
+ time_t epoch=timestamp;tm date{};if(!gmtime_r(&epoch,&date))return "--";
+ char stamp[32];if(!std::strftime(stamp,sizeof(stamp),"%Y-%m-%d %H:%M:%S UTC",&date))return "--";
+ return stamp;
+}
+std::array<float,4> snrMapColor(double snr){
+ if(!std::isfinite(snr))return {.62f,.67f,.70f,1};
+ const std::array<float,4> red{.95f,.25f,.20f,1},yellow{1,.82f,.24f,1},green{.28f,.85f,.40f,1};
+ double level=std::clamp((snr+30)/40,0.,1.);const auto& from=level<=.5?red:yellow;const auto& to=level<=.5?yellow:green;
+ float mix=float(level<=.5?level*2:(level-.5)*2);std::array<float,4> color{};
+ for(size_t i=0;i<color.size();i++)color[i]=from[i]+(to[i]-from[i])*mix;return color;
+}
 constexpr double rad=3.14159265358979323846/180.;
 float cornerFlashOpacity(double seconds){return std::isfinite(seconds)&&seconds>0&&seconds<2?float(std::sin(seconds*3.14159265358979323846/2)):0.f;}
 std::string upper(std::string s){for(char& c:s)c=char(std::toupper(static_cast<unsigned char>(c)));return s;}
@@ -88,6 +105,12 @@ std::string compassDirection(double degrees){const char* names[]={"North","North
 std::vector<Decode> farthestActivity(Point home,const std::vector<Row>& rows,int count){
  std::vector<Decode> stations;for(const auto& row:rows){auto d=row.decode;if(!d.position||d.identity.transmitter.empty())continue;auto path=distanceBearing(home,*d.position);if(!std::isfinite(path.first)||!std::isfinite(path.second)||path.first<1)continue;d.km=path.first;d.bearing=path.second;stations.push_back(std::move(d));}
  std::stable_sort(stations.begin(),stations.end(),[](const Decode& a,const Decode& b){return *a.km>*b.km;});if(stations.size()>size_t(std::max(0,count)))stations.resize(size_t(std::max(0,count)));return stations;
+}
+Query recentActivityQuery(const Query& view,int64_t referenceUtc){
+ auto query=view;query.uniqueCalls=true;query.messages=query.countries=false;query.sort=3;query.descending=true;
+ query.filter.hasGrid=true;query.filter.minKm=std::max(1.,query.filter.minKm);
+ query.since=referenceUtc-activityWindowMinutes*60;query.until=query.referenceUtc=referenceUtc;
+ return query;
 }
 float arrivalOpacity(double seconds){if(seconds<0||seconds>=arrivalHighlightSeconds)return 0;return float(seconds<.45?seconds/.45:std::pow(1-(seconds-.45)/(arrivalHighlightSeconds-.45),2));}
 double distanceDisplay(double km,bool miles){return miles?km/1.609344:km;}

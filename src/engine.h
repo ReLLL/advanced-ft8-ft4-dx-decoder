@@ -32,6 +32,8 @@ public:
  Engine(std::filesystem::path root,std::filesystem::path helper,Point home,
   std::function<std::pair<std::string,std::string>(const std::string&)> country);
  ~Engine();void enqueue(Job job);void query(Query table,Query map,uint64_t generation);
+ // Rolling clock updates must not invalidate an in-flight view request.
+ void refresh(Query table,Query map);
  void select(const Decode& d,int offset=0);void settings(Json values);void exportData(Query query,std::filesystem::path path,bool csv);
  void selectCountry(std::string country,int offset=0);
  void active(bool enabled);void retry();std::shared_ptr<const Snapshot> snapshot()const;
@@ -43,6 +45,7 @@ public:
  void hover(const Decode& station);
 private:
  void decodeLoop();void storeLoop();void importText(Store& store);void publish(Store& store);
+ void hideIgnored(const IgnoreTarget& target);
  std::filesystem::path root_;Helper helper_;Point home_;
  std::function<std::pair<std::string,std::string>(const std::string&)> country_;
  mutable std::mutex mutex_;std::condition_variable cv_;std::thread decoder_,writer_;std::atomic<bool> stopping_{false};

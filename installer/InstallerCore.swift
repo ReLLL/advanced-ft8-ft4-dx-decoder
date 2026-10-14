@@ -12,6 +12,7 @@ struct PayloadManifest: Codable {
     let hostBundleID: String
     let hostVersion: String
     let hostCoreSHA256: String
+    let hostLibraries: [String]
     let files: [String: String]
     var hostName: String { hostBundleID == "oorg.sdrpp.sdrpp" ? "SDR++" : "SDR++Brown" }
     var appPath: String { "/Applications/" + hostName + ".app" }
@@ -67,14 +68,14 @@ struct PluginInstaller {
 
     func validateHost(_ app: URL) throws {
         guard let info = NSDictionary(contentsOf: app.appendingPathComponent("Contents/Info.plist")),
-              info["CFBundleIdentifier"] as? String == manifest.hostBundleID,
-              info["CFBundleVersion"] as? String == manifest.hostVersion else {
-            throw InstallError.message("Install the supported \(manifest.hostName) build in Applications first.")
+              info["CFBundleIdentifier"] as? String == manifest.hostBundleID else {
+            throw InstallError.message("Install \(manifest.hostName) in Applications first.")
         }
         let core = app.appendingPathComponent("Contents/Frameworks/libsdrpp_core.dylib")
         try regularFile(core)
-        guard Self.hash(try Data(contentsOf: core)) == manifest.hostCoreSHA256 else {
-            throw InstallError.message("The installed \(manifest.hostName) build differs from this plugin package. Use the matching host build from the installation guide.")
+        for name in manifest.hostLibraries {
+            guard !name.contains("/"), name.hasSuffix(".dylib") else { throw InstallError.message("The installer package has an invalid library list.") }
+            try regularFile(app.appendingPathComponent("Contents/Frameworks/" + name))
         }
     }
 

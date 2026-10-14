@@ -7,7 +7,18 @@
 #include <chrono>
 #include <cmath>
 namespace dx {
-namespace {int64_t now(){return std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());}}
+namespace {
+int64_t now(){return std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());}
+void hideIgnoredViews(Snapshot& view,const IgnoreTarget& target){
+ auto rows=[&](auto& list){list.erase(std::remove_if(list.begin(),list.end(),[&](const Row& row){return target.matches(row.decode);}),list.end());};rows(view.table);rows(view.map);
+ auto messages=[&](auto& list){list.erase(std::remove_if(list.begin(),list.end(),[&](const Decode& d){return target.matches(d);}),list.end());};messages(view.details);messages(view.hoverMessages);
+ if(view.hoverStation&&target.matches(*view.hoverStation))view.hoverStation.reset();
+ view.paths.erase(std::remove_if(view.paths.begin(),view.paths.end(),[&](const ExchangePath& path){return !target.message&&(path.transmitter==target.value||path.called==target.value);}),view.paths.end());
+ view.cornerReceptions.erase(std::remove_if(view.cornerReceptions.begin(),view.cornerReceptions.end(),[&](const CornerReception& row){return target.matches(row.decode);}),view.cornerReceptions.end());
+ view.mapHeardCountries.clear();for(const auto& row:view.map)if(!row.decode.country.empty())view.mapHeardCountries.push_back(row.decode.country);std::sort(view.mapHeardCountries.begin(),view.mapHeardCountries.end());view.mapHeardCountries.erase(std::unique(view.mapHeardCountries.begin(),view.mapHeardCountries.end()),view.mapHeardCountries.end());
+ view.moderating=true;
+}
+}
 std::optional<Job> SlotCapture::feed(const float* samples,size_t count,int64_t endMs,int64_t dial,const std::string& mode){
  samples_+=count;periodSamples_=mode=="FT4"?90000:180000;int64_t endSample=endMs*12,start=endSample-int64_t(count);
  if(nextSample_>=0){if(std::abs(start-nextSample_)>2400){++discontinuities_;reset();}else start=nextSample_;}
@@ -27,6 +38,7 @@ Engine::~Engine(){stopping_=true;cv_.notify_all();decoder_.join();writer_.join()
 void Engine::enqueue(Job job){static std::atomic<uint64_t> id{1};job.id=id++;std::lock_guard<std::mutex> lock(mutex_);
  if(jobs_.size()>=32||blocked_){++status_.skipped;return;}jobs_.push_back(std::move(job));std::stable_sort(jobs_.begin(),jobs_.end(),[](auto& a,auto& b){return a.deadlineMs<b.deadlineMs;});cv_.notify_all();}
 void Engine::query(Query t,Query m,uint64_t g){std::lock_guard<std::mutex> lock(mutex_);if(t.countries)t.messages=false;t.uniqueCalls=!t.messages;table_=std::move(t);map_=std::move(m);generation_=g;queryDirty_=true;cv_.notify_all();}
+void Engine::refresh(Query t,Query m){std::lock_guard<std::mutex> lock(mutex_);if(t.countries)t.messages=false;t.uniqueCalls=!t.messages;table_=std::move(t);map_=std::move(m);queryDirty_=true;cv_.notify_all();}
 void Engine::select(const Decode& d,int offset){std::lock_guard<std::mutex> lock(mutex_);selection_=d;selectionCountry_.clear();historyOffset_=offset;selectionDirty_=true;cv_.notify_all();}
 void Engine::selectCountry(std::string country,int offset){std::lock_guard<std::mutex> lock(mutex_);selection_.reset();selectionCountry_=std::move(country);historyOffset_=offset;selectionDirty_=true;cv_.notify_all();}
 void Engine::hover(const Decode& d){std::lock_guard<std::mutex> lock(mutex_);if(hovered_&&hovered_->identity.transmitter==d.identity.transmitter&&hovered_->dial==d.dial&&hovered_->mode==d.mode)return;hovered_=d;selectionDirty_=true;cv_.notify_all();}
@@ -36,8 +48,9 @@ void Engine::active(bool enabled){std::lock_guard<std::mutex> lock(mutex_);activ
 void Engine::alertContext(std::string bands,bool ft8,bool ft4){std::lock_guard<std::mutex> lock(mutex_);alertBands_=std::move(bands);alertFT8_=ft8;alertFT4_=ft4;}
 void Engine::home(Point point){std::lock_guard<std::mutex> lock(mutex_);pendingHome_=point;queryDirty_=true;cv_.notify_all();}
 void Engine::resetStats(){std::lock_guard<std::mutex> lock(mutex_);pendingStatsReset_=true;queryDirty_=true;cv_.notify_all();}
-void Engine::ignoreTransmitter(std::string call){if(call.empty()||call.find('\0')!=std::string::npos)return;std::lock_guard<std::mutex> lock(mutex_);moderation_.push_back({upper(std::move(call)),false});queryDirty_=true;cv_.notify_all();}
-void Engine::ignoreMessage(std::string message){if(message.empty()||message.find('\0')!=std::string::npos)return;std::lock_guard<std::mutex> lock(mutex_);moderation_.push_back({upper(std::move(message)),true});queryDirty_=true;cv_.notify_all();}
+void Engine::hideIgnored(const IgnoreTarget& target){auto next=std::make_shared<Snapshot>(*snapshot_);hideIgnoredViews(*next,target);snapshot_=std::move(next);}
+void Engine::ignoreTransmitter(std::string call){if(call.empty()||call.find('\0')!=std::string::npos)return;std::lock_guard<std::mutex> lock(mutex_);moderation_.push_back({upper(std::move(call)),false});hideIgnored(moderation_.back());queryDirty_=true;cv_.notify_all();}
+void Engine::ignoreMessage(std::string message){if(message.empty()||message.find('\0')!=std::string::npos)return;std::lock_guard<std::mutex> lock(mutex_);moderation_.push_back({upper(std::move(message)),true});hideIgnored(moderation_.back());queryDirty_=true;cv_.notify_all();}
 void Engine::unignoreAll(){std::lock_guard<std::mutex> lock(mutex_);moderation_.push_back({});queryDirty_=true;cv_.notify_all();}
 void Engine::gridTrackerContext(GridTrackerContext context){std::lock_guard<std::mutex> lock(mutex_);gridTrackerContext_=std::move(context);}
 void Engine::retry(){std::lock_guard<std::mutex> lock(mutex_);retry_=true;blocked_=false;status_.error.clear();cv_.notify_all();}
@@ -80,6 +93,7 @@ void Engine::publish(Store& store){Query table,map;uint64_t generation;std::opti
   auto scope=[](Query& q,int64_t since){q.since=q.firstSince=since;q.until=INT64_MAX;q.afterRowId=q.firstAfterId=0;};
   scope(table,ui.value("history_table_cleared",int64_t(0)));scope(map,ui.value("history_map_cleared",int64_t(0)));
  }else{
+  table.since=std::max(table.since,startedAt_);map.since=std::max(map.since,startedAt_);
   table.firstSince=std::max(table.firstSince,startedAt_);map.firstSince=std::max(map.firstSince,startedAt_);table.firstAfterId=map.firstAfterId=startAfterId_;
   if(table.since>=startedAt_)table.afterRowId=std::max(table.afterRowId,startAfterId_);if(map.since>=startedAt_)map.afterRowId=std::max(map.afterRowId,startAfterId_);
  }
@@ -90,14 +104,14 @@ void Engine::publish(Store& store){Query table,map;uint64_t generation;std::opti
  next->ignoredCalls=store.ignoredCalls();next->ignoredMessages=store.ignoredMessages();next->moderating=!store.getSetting("log_purges",Json::object()).empty()||!store.getSetting("message_log_purges",Json::object()).empty();
  auto csvPaths=store.getSetting("csv_paths",Json::array());for(const auto& path:csvPaths)if(path.is_string())next->csvPaths.push_back(path.get<std::string>());
  next->csvPaths.push_back(ui.value("csv_path",(root_/"receptions.csv").string()));if(std::filesystem::exists(root_/"receptions.csv"))next->csvPaths.push_back((root_/"receptions.csv").string());std::sort(next->csvPaths.begin(),next->csvPaths.end());next->csvPaths.erase(std::unique(next->csvPaths.begin(),next->csvPaths.end()),next->csvPaths.end());
- auto directionQuery=map;directionQuery.uniqueCalls=true;directionQuery.messages=false;directionQuery.sort=3;directionQuery.descending=true;directionQuery.filter.hasGrid=true;directionQuery.filter.minKm=std::max(1.,directionQuery.filter.minKm);directionQuery.since=std::max(directionQuery.since,now()-std::clamp(ui.value("direction_minutes",15),1,120)*60);directionQuery.until=std::min(directionQuery.until,now());
+ auto directionQuery=recentActivityQuery(map,now());
  {std::lock_guard<std::mutex> lock(mutex_);if(directionQuery.filter.band.empty())directionQuery.filter.band=alertBands_.empty()?"__none__":alertBands_;if(directionQuery.filter.mode.empty())directionQuery.filter.mode=alertFT8_?(alertFT4_?"FT8,FT4":"FT8"):(alertFT4_?"FT4":"__none__");}
  directionQuery.afterRowId=statsAfterId_;directionQuery.since=std::max(directionQuery.since,statsSince_);next->directionStations=farthestActivity(home_,store.rows(directionQuery),std::clamp(ui.value("direction_stations",5),1,25));next->direction=activityBearing(next->directionStations);
  if(selection)next->details=store.history(selection->identity.transmitter,selection->dial,selection->mode,offset);
  if(!selectedCountry.empty()){auto countryMessages=table;countryMessages.messages=true;countryMessages.countries=countryMessages.uniqueCalls=false;countryMessages.sort=18;countryMessages.descending=true;next->detailsCountry=selectedCountry;if(countryMessages.filter.country.empty()||matches(selectedCountry,countryMessages.filter.country)){countryMessages.filter.country=selectedCountry;for(const auto& row:store.rows(countryMessages,offset,500))next->details.push_back(row.decode);}}
  if(hovered){next->hoverStation=hovered;next->hoverMessages=store.uniqueMessages(*hovered,map);}
  next->cornerReceptions=cornerFeed_.rows();next->settings=store.getSetting("ui",Json::object());next->generation=generation;next->queryMs=double(monotonicMs()-begin);
- std::lock_guard<std::mutex> lock(mutex_);if(generation==generation_){next->moderating=next->moderating||!moderation_.empty();next->arrivals=status_.arrivals;next->newestReceptionUtc=status_.newestReceptionUtc;next->csvPath=status_.csvPath;next->csvBytes=status_.csvBytes;next->csvError=status_.csvError;next->csvCatchingUp=status_.csvCatchingUp;next->notice=status_.notice;next->alert=status_.alert;next->alertUtc=status_.alertUtc;next->alertSound=status_.alertSound;next->alertTone=status_.alertTone;next->queued=jobs_.size();next->pendingWrites=writes_.size();next->skipped=status_.skipped;next->failures=status_.failures;next->decodedJobs=status_.decodedJobs;next->lastDecodeMs=status_.lastDecodeMs;next->helperPid=status_.helperPid;next->decoding=status_.decoding;next->error=status_.error;snapshot_=std::move(next);}
+ std::lock_guard<std::mutex> lock(mutex_);if(generation==generation_){for(const auto& target:moderation_)hideIgnoredViews(*next,target);next->moderating=next->moderating||!moderation_.empty();next->arrivals=status_.arrivals;next->newestReceptionUtc=status_.newestReceptionUtc;next->csvPath=status_.csvPath;next->csvBytes=status_.csvBytes;next->csvError=status_.csvError;next->csvCatchingUp=status_.csvCatchingUp;next->notice=status_.notice;next->alert=status_.alert;next->alertUtc=status_.alertUtc;next->alertSound=status_.alertSound;next->alertTone=status_.alertTone;next->queued=jobs_.size();next->pendingWrites=writes_.size();next->skipped=status_.skipped;next->failures=status_.failures;next->decodedJobs=status_.decodedJobs;next->lastDecodeMs=status_.lastDecodeMs;next->helperPid=status_.helperPid;next->decoding=status_.decoding;next->error=status_.error;snapshot_=std::move(next);}
 }
 void Engine::storeLoop(){
  std::unique_ptr<Store> store;double seconds=0;auto tick=monotonicMs(),lastPublish=tick,lastImport=tick,lastSave=tick;bool baseline=true;

@@ -49,6 +49,6 @@ void DXNotebook::ignoreConfirmation(){
  ImGui::TextUnformatted("This blocks matching future receptions, removes matching rows and map markers, recalculates statistics, and deletes those receptions from this plugin's saved history and known reception CSV logs. Deletion cannot be undone. Uptime is kept.");ImGui::PopTextWrapPos();
  ImGui::Separator();ImGui::TextDisabled("%s",(root_/"history.sqlite3").c_str());ImGui::TextUnformatted("CSV logs to clean:");
  ImGui::BeginChild("purge_paths",{440,80},true,ImGuiWindowFlags_HorizontalScrollbar);for(const auto& path:snapshot->csvPaths)ImGui::TextUnformatted(path.c_str());ImGui::EndChild();ImGui::Separator();
- if(ImGui::Button("Ignore and delete")){if(ignoreTarget_.message)engine_->ignoreMessage(ignoreTarget_.value);else engine_->ignoreTransmitter(ignoreTarget_.value);ignoreWaiting_=true;if(selected_&&ignoreTarget_.matches(*selected_))selected_.reset();mapContext_.reset();tableQuery_.offset=0;refresh();ImGui::CloseCurrentPopup();}
+ if(ImGui::Button("Ignore and delete")){if(ignoreTarget_.message)engine_->ignoreMessage(ignoreTarget_.value);else engine_->ignoreTransmitter(ignoreTarget_.value);ignoreWaiting_=true;if(selected_&&ignoreTarget_.matches(*selected_))selected_.reset();if(detailsContext_&&ignoreTarget_.matches(*detailsContext_))detailsContext_.reset();mapContext_.reset();tableQuery_.offset=0;refresh();ImGui::CloseCurrentPopup();}
  ImGui::SameLine();if(ImGui::Button("Cancel"))ImGui::CloseCurrentPopup();ImGui::EndPopup();
 }

@@ -4,7 +4,7 @@ Read when: setting up reception, understanding timestamps or distances, or confi
 
 ## Start receiving
 
-Set your own home Maidenhead grid in Brown. Distances and bearings originate at its center. Start the SDR and place a supported FT8 or FT4 dial inside the captured RF range. The plugin creates its own receiving channels for eligible presets; the ordinary Radio module can keep its selected mode. Check **Receiving**, level in dBFS, slot progress and decoded messages. Additional dial frequencies can be added in Settings > Reception.
+Set your own home Maidenhead grid in Brown. Distances and bearings originate at its center. Start the SDR and place a supported FT8 or FT4 dial inside the captured RF range. The plugin creates its own receiving channels for eligible presets; the ordinary Radio module can keep its selected mode. Check **Receiving**, level in dBFS, slot progress and decoded messages. **Time correction** follows queued/skipped counts on the same row, including zero. Brown shows the manual Source > Time correction offset applied to capture timestamps; standard SDR++ uses the Mac UTC clock with no plugin offset. This value is separate from a received signal's DT. Additional dial frequencies can be added in Settings > Reception.
 
 FT8 slots last 15 seconds; FT4 slots last 7.5 seconds. A complete slot is needed after tuning or starting. Keep the computer clock synchronized. SNR is the decoder's estimate measured at this receiver; dBFS is the input audio level, a different measurement.
 
@@ -40,7 +40,7 @@ Long reception lists scroll vertically; long full messages scroll horizontally a
 
 Country names in Unique stations, All messages, Countries heard and the details history have flags before them. Existing green/gold country highlights remain unchanged.
 
-Station details show separate colors for sender, country, distance, received signal, mode/grid and message. The close button stays at the right. Reception history is a table with UTC, sender, target, country, grid, SNR, Distance, mode/band, full message and source.
+Station details show separate colors for sender, country, distance, received signal, mode/grid and message. The close button stays at the right. Reception history is a table with UTC, sender, target, country, grid, SNR, Distance, mode/band, full message and source. Right-click anywhere on a details row for the same station popup as the main table. It searches the sender on Google, QRZ or HamQTH; Look up addressed station offers the same providers for the target. The menu retains the clicked reception while new rows arrive.
 
 Double-click a Countries heard row to open all its matching messages in the details pane, newest first, including repeats. The current table filters, time window and saved-history choice apply. New matching receptions update this pane in the background. Older messages loads the next 500 receptions.
 
@@ -54,7 +54,7 @@ Settings > General > Distance units offers Kilometers (km), the default, and Mil
 | Msg age | Time since the latest received message. Repeated receptions refresh it. |
 | Msg first heard | First reception of this exact message from this callsign during the visible session. Repeats retain it. |
 
-These values show elapsed seconds; hover shows the original UTC date/time. With saved history for everything enabled, the first-heard times use retained history rather than this session. **Station first heard** appears before **Msg age**. All three align right. The default sort places newly heard stations first, using their first-heard timestamps. Click any column header to change the sort. Drag headers to reorder columns and drag their edges to resize. Right-click a header to show or hide columns. Order, widths, visibility and sorting are saved across restarts; horizontal scrolling reveals extra columns. Sender identifies the transmitter. Target shows the addressed callsign, or -- for a general call or no target. Mod shows FT8 or FT4 for the latest matching reception. Target and Mod initially appear last, in that order.
+Age values through 600 seconds show elapsed seconds followed by ago, such as `30s ago` or `600s ago`. Older values show the original UTC date and time, such as `2026-10-14 14:30:00 UTC`. The same rule applies to both reception tables, Countries heard > Last heard and map age tooltips. Unknown times show `--`; future timestamps show `0s ago`. Hover still shows the original UTC date/time. Sorting always uses the underlying timestamp; age filters continue to use elapsed seconds regardless of the displayed format. With saved history for everything enabled, the first-heard times use retained history rather than this session. **Station first heard** appears before **Msg age**. All three align right. The default sort places newly heard stations first, using their first-heard timestamps. Click any column header to change the sort. Drag headers to reorder columns and drag their edges to resize. Right-click a header to show or hide columns. Order, widths, visibility and sorting are saved across restarts; horizontal scrolling reveals extra columns. Sender identifies the transmitter. Target shows the addressed callsign, or -- for a general call or no target. Mod shows FT8 or FT4 for the latest matching reception. Target and Mod initially appear last, in that order.
 
 The table shows **one row per callsign** across all matching bands, modes and dial frequencies. Its message, SNR, band, mode, distance and other reception fields come from the latest matching decode. Rows without a transmitter identity group by exact message text. Individual receptions remain in saved logs and station details. Right-click a row for lookup, copying, watch-list and other station actions. Selecting a row opens details; **Close details** sits at the right edge.
 
@@ -84,7 +84,9 @@ The house marks home. Country labels on the offline/OpenStreetMap maps use small
 
 Night shading follows the solar terminator. The boundary indicates the day/night geometry; it does not predict reception conditions.
 
-Dark-blue curved moving dots connect an addressed transmitter to the station it calls. General calls create no arc. There is one arc per station pair, dial and mode, with the latest reply setting its direction. Both stations need received grids, which may be cached. Set **Latest exchanges** and **Animate paths** in Map settings. The curved display is a visual guide, not a measured ionospheric ray path. A gold line to a selected station is a distance guide from home.
+Dark-blue curved moving dots connect an addressed transmitter to the station it calls. General calls create no arc. There is one arc per station pair, dial and mode, with the latest reply setting its direction. Both stations need received grids, which may be cached. Set **Latest exchanges** and **Animate paths** in Map settings. The curved display is a visual guide, not a measured ionospheric ray path.
+
+Selecting a station highlights its marker without drawing a path from home.
 
 Station hover shows age, distance, band, receiver SNR and the latest five distinct messages on that frequency/mode. Each line has its latest UTC time followed by quoted text. Repeats refresh that message's time without using another row. The history loads in the background.
 
@@ -118,7 +120,9 @@ Sound alerts start off. Settings > Alerts selects events and individual macOS so
 
 ## DX activity bearing
 
-The statistic takes short-path bearings from your home grid to the farthest recent unique stations and calculates their equal-weight circular mean. Defaults: five stations within 15 minutes. Both are adjustable in Reception settings. Map filters and eligible capture bands/modes apply. A normalized resultant below 0.5 displays mixed directions instead of one unreliable bearing.
+The top statistic is labeled **DX ACTIVITY BEARING**.
+
+The statistic takes short-path bearings from your home grid to the farthest recent unique stations and calculates their equal-weight circular mean. The reception window is always the last 15 minutes, independent of the map/table time window or older saved history. Five farthest stations are used by default; the station count is adjustable in Reception settings. Map filters and eligible capture bands/modes apply. A normalized resultant below 0.5 displays mixed directions instead of one unreliable bearing.
 
 This measures heard geographic activity. Antenna pattern, transmit power, band, sampling, long-path propagation and ionospheric conditions can all affect it. It is not a measured arrival azimuth or proof that a particular propagation direction is open.
 
@@ -133,3 +137,7 @@ Both hosts are supported through separate matching binaries. Use the native inst
 Set the home locator in the installer, in Brown's **Source > My Grid**, or in standard SDR++'s plugin **Settings > General > Maidenhead grid**. Without a valid home locator, the standard build leaves the home marker, distances and bearings unknown while station-grid mapping and decoding continue. Four- and six-character locators work in both; the standard build also accepts eight.
 
 Standard SDR++ timestamps live capture against the Mac's UTC clock. Keep the computer clock synchronized. Its file source lacks Brown's recorded-stream timestamp API, so replay timestamps describe when the samples were processed rather than their original recording date.
+
+## Color based on SNR
+
+The checkbox beside **Use saved history for everything** starts off and is remembered. When enabled, each map circle uses the latest receiver SNR represented by that marker: red at -30 dB, yellow at -10 dB and green at +10 dB. Colors interpolate continuously; values outside this fixed range use its endpoint colors. The map shows a gradient legend, and tooltips retain the exact numeric SNR. Latest-reception halos and gold selected-station outlines stay separate. This is a visual scale for the decoder's received SNR estimate, not a calibrated propagation or signal-quality grade. Country shading and table colors are unchanged.

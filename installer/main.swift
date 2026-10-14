@@ -14,7 +14,7 @@ func hostIsRunning(_ manifest: PayloadManifest) throws -> Bool {
     return process.terminationStatus == 0
 }
 
-final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTextFieldDelegate {
     private var window: NSWindow!
     private let status = NSTextField(wrappingLabelWithString: "")
     private let profileLabel = NSTextField(wrappingLabelWithString: "")
@@ -25,6 +25,11 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let progress = NSProgressIndicator()
     private let hosts = NSPopUpButton()
     private let homeGrid = NSTextField()
+    private let locate = NSButton(title: "Use my location", target: nil, action: nil)
+    private let gridMap = NSButton(title: "Find grid on map", target: nil, action: nil)
+    private let locationStatus = NSTextField(wrappingLabelWithString: "")
+    private let locationLookup = LocationLookup()
+    private var automaticLocationAttempted = false
     private var payloads: [URL] = []
     private var manifests: [PayloadManifest] = []
     private var selectedHost = 0
@@ -50,7 +55,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         if let index = manifests.indices.first(where: { FileManager.default.fileExists(atPath: manifests[$0].appPath) }) { selectedHost = index }
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 550, height: 460),
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 550, height: 540),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Install Advanced FT8/FT4 DX Decoder"
         window.delegate = self
@@ -79,8 +84,13 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let location = NSStackView(views: [NSTextField(labelWithString: "Home locator"), homeGrid])
         location.orientation = .horizontal; location.spacing = 12
         homeGrid.placeholderString = "Your grid, e.g. KM69xx (optional)"
+        homeGrid.delegate = self
         homeGrid.widthAnchor.constraint(equalToConstant: 290).isActive = true
         stack.addArrangedSubview(location)
+        let locationButtons = NSStackView(views: [locate, gridMap]); locationButtons.orientation = .horizontal; locationButtons.spacing = 12
+        stack.addArrangedSubview(locationButtons)
+        locationStatus.font = .systemFont(ofSize: 11); locationStatus.textColor = .secondaryLabelColor
+        stack.addArrangedSubview(locationStatus)
         profileLabel.font = .systemFont(ofSize: 11); profileLabel.textColor = .secondaryLabelColor
         stack.addArrangedSubview(profileLabel)
         status.font = .systemFont(ofSize: 13); status.setAccessibilityIdentifier("installStatus")
@@ -96,7 +106,8 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
             buttons.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
             buttons.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor, constant: -24)
         ])
-        for button in [primary, choose, cancel, help] { button.bezelStyle = .rounded; button.target = self }
+        for button in [primary, choose, cancel, help, locate, gridMap] { button.bezelStyle = .rounded; button.target = self }
+        locate.action = #selector(findLocation); gridMap.action = #selector(openGridMap)
         primary.action = #selector(install); primary.keyEquivalent = "\r"
         primary.setAccessibilityIdentifier("installButton")
         cancel.action = #selector(close); cancel.keyEquivalent = "\u{1b}"
@@ -147,6 +158,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let selectedProfile = profile, selectedApp = host
         let engine: PluginInstaller
         do { engine = try installer(); try engine.validateHomeGrid(location) } catch { failed(error); return }
+        locationLookup.cancel(); locate.isEnabled = false; gridMap.isEnabled = false
         busy = true; primary.isEnabled = false; choose.isEnabled = false; cancel.isEnabled = false; hosts.isEnabled = false; homeGrid.isEnabled = false
         progress.startAnimation(nil); status.stringValue = "Preparing installation..."
         DispatchQueue.global(qos: .userInitiated).async {
@@ -189,6 +201,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
         busy = false; progress.stopAnimation(nil)
         status.stringValue = error.localizedDescription; status.textColor = .systemRed
         primary.title = "Retry"; primary.isEnabled = true; cancel.isEnabled = true; choose.isEnabled = true; hosts.isEnabled = true; homeGrid.isEnabled = true
+        locate.isEnabled = true; gridMap.isEnabled = true
     }
 
     @objc private func chooseProfile() {
@@ -211,6 +224,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
         status.textColor = .labelColor; refresh()
     }
     private func loadHomeGrid() {
+        locationLookup.cancel(); locate.isEnabled = true
         homeGrid.stringValue = ""
         if let data = try? Data(contentsOf: profile.appendingPathComponent("config.json")),
            let config = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
@@ -218,7 +232,26 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 homeGrid.stringValue = (config["moduleInstances"] as? [String: [String: Any]])?[PluginInstaller.instance]?["receiverGrid"] as? String ?? ""
             } else { homeGrid.stringValue = config["operatorLocation"] as? String ?? "" }
         }
+        locationStatus.stringValue = homeGrid.stringValue.isEmpty ? "A grid is a short location code. Use your receiver's location, not a callsign." : "Existing home grid retained. Change it only if your receiver has moved."
+        if homeGrid.stringValue.isEmpty && !automaticLocationAttempted {
+            automaticLocationAttempted = true
+            DispatchQueue.main.async { if self.homeGrid.stringValue.isEmpty && !self.busy { self.findLocation() } }
+        }
     }
+    @objc private func findLocation() {
+        locate.isEnabled = false; locationStatus.stringValue = "Finding your location... Allow macOS location access to suggest a grid."
+        let original = homeGrid.stringValue
+        locationLookup.start { [weak self] grid, accuracy, message in
+            guard let self, !self.busy, self.homeGrid.stringValue == original else { return }
+            self.locate.isEnabled = true
+            if let grid, let accuracy {
+                self.homeGrid.stringValue = grid
+                self.locationStatus.stringValue = String(format: "Suggested %@ (accuracy about %.1f km). %@", grid, accuracy / 1000, message)
+            } else { self.locationStatus.stringValue = message }
+        }
+    }
+    @objc private func openGridMap() { NSWorkspace.shared.open(URL(string: "https://k7fry.com/grid/")!) }
+    func controlTextDidChange(_ notification: Notification) { locationLookup.cancel(); locate.isEnabled = true; locationStatus.stringValue = "Use the grid of the place where your receiver and antenna are located." }
     @objc private func openHelp() { NSWorkspace.shared.open(URL(string: "https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/blob/main/docs/INSTALL.md")!) }
     @objc private func close() { if !busy { NSApp.terminate(nil) } }
     func windowShouldClose(_ sender: NSWindow) -> Bool { if busy { return false }; NSApp.terminate(nil); return true }

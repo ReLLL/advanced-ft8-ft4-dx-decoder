@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.26
+
+- Show ages through 600 seconds as seconds followed by ago; older values show UTC date/time. Apply the same formatter to Unique stations, All messages, Countries heard and map age tooltips. Keep timestamp sorting and numeric age filters unchanged.
+- Rename the top direction statistic to DX ACTIVITY BEARING and fix its reception window at the last 15 minutes, independently of map/table history windows. Keep the station count adjustable.
+- Show Time correction on the queued/skipped row, including zero. Brown uses the actual applied capture-time offset; standard SDR++ reports no plugin offset.
+
+- Remove installer restrictions on exact host versions/core fingerprints; retain host identity, required-library, payload and backup checks.
+- Suggest an empty home grid with macOS Location Services, showing accuracy and asking the user to confirm. Keep existing/manual grids, support denied/unavailable location, and add a locator-map button and beginner README instructions.
+
+- Add Color based on SNR beside the history checkbox, default off and remembered. Map-circle fills use a continuous red/yellow/green dB scale with a legend, separate selection outlines and latest-reception halos.
+- Add sender and target callsign lookup to the details-row popup; retain the clicked reception while live messages update.
+- Fix saved-history restoration during reception: rolling refreshes no longer discard completed loads. Rank compact reception IDs and index first-heard queries to reduce work. Keep live reception and logging active while history is enabled.
+- Hide ignored transmitters immediately from map/table/details while the worker deletes their saved receptions and known CSV logs; preserve confirmation and retry failed log cleanup.
+- Remove the home-to-selected-station gold path. Keep dark-blue communication arcs between addressed stations.
+
 ## 1.0.25
 
 - Add a native macOS installer for both SDR++ and SDR++Brown, with automatic host selection, optional home locator, automatic first-run preparation, safe host quit, custom-profile selection, backup access and Open host. End users do not need Python, Terminal, Homebrew, developer tools or administrator access.

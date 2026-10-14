@@ -26,7 +26,7 @@ import Darwin
             try data.write(to: payload.appendingPathComponent(name)); files[name] = PluginInstaller.hash(data)
         }
         let manifest = PayloadManifest(version: "1.0.25", hostBundleID: bundleID,
-            hostVersion: version, hostCoreSHA256: PluginInstaller.hash(core), files: files)
+            hostVersion: version, hostCoreSHA256: PluginInstaller.hash(core), hostLibraries: ["libsdrpp_core.dylib"], files: files)
         try JSONEncoder().encode(manifest).write(to: payload.appendingPathComponent("manifest.json"))
         let config: [String: Any] = ["operatorLocation": "KM69", "modules": ["other.dylib"],
             "moduleInstances": ["Radio": ["module": "radio", "enabled": true]],
@@ -47,6 +47,17 @@ import Darwin
         try check(failed, "expected failure")
     }
     static func main() throws {
+        try scenario("location grids, precision, stale and unreliable estimates") { _ in
+            try check(GridLocator.coordinate(latitude: 39.93, longitude: 32.86) == "KM69KW", "Ankara six-character grid")
+            try check(GridLocator.coordinate(latitude: 0, longitude: 0) == "JJ00AA", "equator and meridian")
+            try check(GridLocator.coordinate(latitude: 90, longitude: 180) == "RR99XX", "upper coordinate bounds")
+            try check(GridLocator.coordinate(latitude: -90, longitude: -180) == "AA00AA", "lower bounds")
+            try check(GridLocator.suggestion(latitude: 39.93, longitude: 32.86, accuracy: 9000, age: 30) == "KM69", "coarse estimate gives four characters")
+            try check(GridLocator.suggestion(latitude: 39.93, longitude: 32.86, accuracy: 500, age: 30) == "KM69KW", "accurate estimate gives six characters")
+            try check(GridLocator.suggestion(latitude: 39.93, longitude: 32.86, accuracy: 21_000, age: 30) == nil, "reject unreliable estimate")
+            try check(GridLocator.suggestion(latitude: 39.93, longitude: 32.86, accuracy: 500, age: 301) == nil, "reject stale estimate")
+            try check(GridLocator.coordinate(latitude: .nan, longitude: 0) == nil && GridLocator.coordinate(latitude: 91, longitude: 0) == nil, "reject invalid coordinates")
+        }
         try scenario("fresh install, backups, permissions, logs and repeated upgrades") { root in
             let (engine, profile, host) = try fixture(root)
             let config = profile.appendingPathComponent("config.json")
@@ -76,13 +87,14 @@ import Darwin
                 try check(!fm.contentsOfDirectory(atPath: profile.path).contains(where: { $0.hasPrefix(".dx-install-") }), "stage cleaned")
             }
         }
-        for issue in ["running", "corrupt payload", "incompatible host", "invalid configuration", "symlink"] {
+        for issue in ["running", "corrupt payload", "wrong host", "missing library", "invalid configuration", "symlink"] {
             try scenario("reject " + issue + " without profile changes") { root in
                 var (engine, profile, host) = try fixture(root)
                 let config = profile.appendingPathComponent("config.json")
                 if issue == "running" { engine.brownRunning = { true } }
                 if issue == "corrupt payload" { try Data("bad".utf8).write(to: engine.payload.appendingPathComponent("dx_decoder")) }
-                if issue == "incompatible host" { try Data("wrong".utf8).write(to: host.appendingPathComponent("Contents/Frameworks/libsdrpp_core.dylib")) }
+                if issue == "wrong host" { try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "other.app"], format: .xml, options: 0).write(to: host.appendingPathComponent("Contents/Info.plist")) }
+                if issue == "missing library" { try fm.removeItem(at: host.appendingPathComponent("Contents/Frameworks/libsdrpp_core.dylib")) }
                 if issue == "invalid configuration" { try Data("{\"modules\":42}".utf8).write(to: config) }
                 if issue == "symlink" { try fm.createSymbolicLink(at: profile.appendingPathComponent("plugins"), withDestinationURL: root) }
                 let original = try Data(contentsOf: config)
@@ -120,6 +132,13 @@ import Darwin
             try expectFailure { _ = try engine.install(profile: profile, host: host, homeGrid: "WRONG") }
             try check(Data(contentsOf: profile.appendingPathComponent("config.json")) == original, "settings unchanged")
         }
+        for standard in [false,true] { try scenario("accept different host versions and rebuilt core") { root in
+            let (engine,profile,host) = try fixture(root,standard: standard)
+            let plist = ["CFBundleIdentifier": engine.manifest.hostBundleID, "CFBundleVersion": "9.9.9"]
+            try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: host.appendingPathComponent("Contents/Info.plist"))
+            try Data("rebuilt core".utf8).write(to: host.appendingPathComponent("Contents/Frameworks/libsdrpp_core.dylib"))
+            _ = try engine.install(profile: profile, host: host)
+        } }
         print("Installer safety checks passed.")
     }
 }

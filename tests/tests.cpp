@@ -7,6 +7,10 @@
 #include <cmath>
 #define CHECK(x) do{if(!(x)){std::cerr<<"Failed "<<__LINE__<<": "<<#x<<'\n';return 1;}}while(0)
 int main(){
+ auto red=dx::snrMapColor(-30),yellow=dx::snrMapColor(-10),green=dx::snrMapColor(10);
+ CHECK(red[0]>red[1]&&yellow[0]>.9f&&yellow[1]>.8f&&green[1]>green[0]);
+ CHECK(dx::snrMapColor(-100)==red&&dx::snrMapColor(100)==green&&dx::snrMapColor(-9.9)!=yellow);
+ for(double snr=-30;snr<10;snr+=.1){auto a=dx::snrMapColor(snr),b=dx::snrMapColor(snr+.1);CHECK(a!=b&&a[3]==1&&b[1]>=a[1]);for(float channel:a)CHECK(channel>=0&&channel<=1);}
  CHECK(dx::callsignLookupUrl("k1abc",0)=="https://www.google.com/search?q=K1ABC%20call%20sign");CHECK(dx::callsignLookupUrl("F/K1ABC/P",1)=="https://www.qrz.com/db/F%2FK1ABC%2FP");CHECK(dx::callsignLookupUrl("K1ABC",2)=="https://www.hamqth.com/K1ABC");CHECK(dx::callsignLookupUrl("<1:123>",0).empty()&&dx::callsignLookupUrl("K1ABC&test",0).empty()&&dx::callsignLookupUrl("K1ABC",3).empty());
  dx::Decode nearHome,farHome;nearHome.identity.transmitter="A1TEST";nearHome.position=dx::Point{0,10};nearHome.km=99999;nearHome.bearing=270;farHome.identity.transmitter="B1TEST";farHome.position=dx::Point{0,80};farHome.km=1;farHome.bearing=270;
  auto fromWest=dx::farthestActivity({0,0},{{nearHome,1},{farHome,1}},1);CHECK(fromWest.size()==1&&fromWest[0].identity.transmitter=="B1TEST"&&std::abs(*fromWest[0].bearing-90)<1e-6);

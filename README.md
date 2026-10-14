@@ -6,29 +6,45 @@ Created by [ReLLL](https://github.com/ReLLL). Free software under GPL-3.0-or-lat
 
 ## Download and install
 
-[Download the latest release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26. Other host builds may require matching binaries; the installer checks compatibility automatically.
+[Download the latest release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26.
 
 1. Install [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus/releases/tag/nightly) or [SDR++Brown](https://sdrpp-brown.san.systems/) in **Applications**. Skip this if you already have the supported app installed.
 2. Download and open `installer-macos-arm64.dmg`, then open **Install Advanced FT8-FT4 DX Decoder**. The ZIP includes the same installer if you prefer to extract it.
-3. The installer detects the installed radio app. If both are installed, choose the one you want. Confirm your **Home locator** if you know it; an existing locator is prefilled. Click **Install**. First-run settings are prepared automatically if needed; an open host is asked to quit normally before its configuration is updated.
+3. The installer detects the installed radio app. If both are installed, choose the one you want. An existing **Home locator** is prefilled. If it is empty, the installer can request macOS location permission and suggest a grid; confirm that the estimate matches your receiver's location, or use **Find grid on map**. Click **Install**. First-run settings are prepared automatically if needed; an open host is asked to quit normally before its configuration is updated.
 4. Click **Open SDR++** or **Open SDR++Brown**. Open **Advanced FT8/FT4 DX Decoder** from the sidebar.
 5. If you skipped the home locator, set your actual **Maidenhead grid** before relying on distances and bearings. In **Brown**, expand the left **Source** panel and find **My Grid** below **Operator Callsign**. Enter a four- or six-character locator; Brown shows coordinates beside a valid grid, or **Invalid**. In **standard SDR++**, open the plugin's **Settings > General > Maidenhead grid**; four, six or eight characters are accepted. For example, `KM69` and `KM69xx` show the format; use your own locator. More characters give a smaller location area. Distances and bearings use the grid center. Standard SDR++ keeps distances and the home marker unavailable until a valid home locator is configured.
 6. Start your SDR and tune a capture covering an FT8 or FT4 dial frequency. Eligible presets show **Receiving**.
 
-No Python, Terminal, Homebrew, developer tools or administrator password is needed for the native installer. It verifies packaged files and the selected host build, backs up the configuration and any previous plugin, and installs outside the host's signed application. Each host has its own binary, profile and reception history. Settings and logs are preserved; **Choose profile...** supports a non-default profile. [Installation and removal](docs/INSTALL.md).
+No Python, Terminal, Homebrew, developer tools or administrator password is needed for the native installer. It verifies packaged files and the selected host's required libraries, backs up the configuration and any previous plugin, and installs outside the host's signed application. Each host has its own binary, profile and reception history. Settings and logs are preserved; **Choose profile...** supports a non-default profile. [Installation and removal](docs/INSTALL.md).
 
 The **SDR++ build uses standard SDR++ APIs**, with its own location and country data; it does not require Brown to be installed. Brown keeps its native integration and existing behavior. The shared FT8/FT4 decoder uses pinned MSHV-derived source, while host headers and runtime libraries match the selected application.
 
-## What you can see in 1.0.25
+### Finding your home grid: first-time setup
 
-- **At a glance:** unique countries, unique stations, farthest distance with country, active decoding uptime, stations heard in the last five minutes, and the latest five calls with country, distance and receiver SNR.
+A **Maidenhead grid locator** is a short code for a place on Earth, such as `FN31pr`. It is not a callsign, postcode or frequency. Use the location of **your receiver and antenna**, not the grid of a station you hear. [ARRL explains grid squares](https://www.arrl.org/grid-squares).
+
+The installer suggests a grid when the field is empty, using **macOS Location Services** after permission. It shows the estimated accuracy; check the suggestion before clicking Install. Existing grids stay unchanged. If permission is declined or the estimate is too coarse, installation still works and you can enter the grid later. IP addresses are not used to guess a home grid.
+
+To find it yourself:
+
+1. Open the [K7FRY locator map](https://k7fry.com/grid/) in your browser, or click **Find grid on map** in the installer.
+2. Zoom and move the map to the place where your receiver is located. Click that spot; the map displays its locator.
+3. Copy the **first six characters**. If the map shows a longer locator, keep only those six; six characters work in both hosts. Letter case does not matter.
+4. Paste them into the installer's **Home locator** field. Already installed? In Brown, use **Source > My Grid** on the left. In standard SDR++, use the plugin's **Settings > General > Maidenhead grid**.
+5. Check that the home marker is near your receiving location. If you move the receiver to another place, update its locator.
+
+The code identifies an area; the plugin calculates distances from its center. Six characters give a smaller area than four. `KM69` and `KM69xx` in the instructions are format examples; do not copy them as your location unless they actually match it.
+
+## What you can see in 1.0.26
+
+- **At a glance:** unique countries, unique stations, farthest distance with country, active decoding uptime, stations heard in the last five minutes, and the latest five calls with country, distance and receiver SNR. DX ACTIVITY BEARING summarizes recent distant reception.
 - **Three reception views:** Unique stations, All messages and Countries heard. Repeated messages stay visible in All messages; country summaries show distinct senders, mean distance/SNR and the last five senders. Each table remembers its layout and sort.
 - **Waterfall corner:** optional, initially on. Every new reception appears with its flag, country, sender, distance, SNR and full italic message, including repeats. Rows pulse for two seconds and expire after an adjustable 10 seconds. The farthest reception stays below, with a trophy and flag; only its Farthest label is gold.
 - **Flags and details:** flags precede country names in all tables. The details pane separates station, country, distance, signal and message colors. Double-click a country to see all its matching receptions, including repeats, newest first.
 - **Distance units:** kilometers by default, with a saved miles option in General settings. Tables, map tips, statistics, details, notifications and distance filters follow this choice.
 - **Flexible workspace:** resizable window, visible map/table splitter, sortable columns with saved drag order, widths and visibility, map-only and table-only views. Newest **Station first heard** comes first by default; repeats retain the original first-heard time.
-- **Message detail:** callsign, country, grid, band, FT8/FT4 mode, SNR, approximate distance, message text, Msg age, Msg first heard and Station first heard. One row per callsign across bands and modes, with the latest matching message and receiver values. Hover reveals UTC timestamps; right-click opens Google, QRZ or HamQTH for the transmitting or addressed station.
-- **DX map:** Esri street map by default, Humanitarian OpenStreetMap or bundled offline world map. Country names, day/night shading, home marker, optional faint country highlights, and dark-blue animated dotted arcs between addressed stations with received location evidence.
+- **Message detail:** callsign, country, grid, band, FT8/FT4 mode, SNR, approximate distance, message text, Msg age, Msg first heard and Station first heard. One row per callsign across bands and modes, with the latest matching message and receiver values. Age values show seconds with ago through 600 seconds, then UTC date/time; sorting uses timestamps. Hover reveals UTC timestamps; right-click opens Google, QRZ or HamQTH for the transmitting or addressed station.
+- **DX map:** Esri street map by default, Humanitarian OpenStreetMap or bundled offline world map. Country names, day/night shading, home marker, optional continuous SNR coloring (default off), faint country highlights, and dark-blue animated dotted arcs between addressed stations with received location evidence.
 - **Focused reception:** separate or linked band/mode filters, CQ/general-call and two-way message filters, search, exclusions and time windows. Sender, Target and Mod identify the transmitter, addressed callsign and latest FT8/FT4 mode; numeric ranges cover every signal, age and reception-count column.
 - **Clear visual feedback:** nine-second reception highlight, latest-batch map halos and green age values, green country cells for the three most recently discovered countries, retained across message updates, and bold gold for the farthest station's country and distance.
 - **Persistent logs:** UTF-8 CSV with UTC dates, callsigns, SNR, frequency, distance and message details. Commas, quotes and line breaks are escaped. Choose the file location and size limit in Settings.

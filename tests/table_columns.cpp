@@ -5,6 +5,29 @@
 #include <unistd.h>
 #define CHECK(x) do{if(!(x)){std::cerr<<"Failed "<<__LINE__<<": "<<#x<<'\n';return 1;}}while(0)
 int main(){
+ const int64_t midnight=1704067200;
+ {dx::Store activity(":memory:");for(int seconds:{0,899,900,901,3600,-1}){dx::Decode d;d.utc=midnight-seconds;d.dial=7074000;d.mode="FT8";d.message="CQ K"+std::to_string(seconds+2)+"AAA FN42";CHECK(activity.insert(d,{39.5,33}));}
+  for(auto visible:std::vector<dx::Query>{{},dx::Query{midnight-60,midnight},dx::Query{0,midnight-86400}}){
+   auto q=dx::recentActivityQuery(visible,midnight);CHECK(q.since==midnight-900&&q.until==midnight&&q.uniqueCalls&&!q.messages&&!q.countries);
+   auto rows=activity.rows(q);CHECK(rows.size()==3);for(const auto& row:rows)CHECK(row.decode.utc>=midnight-900&&row.decode.utc<=midnight);
+   q.filter.columnRanges[size_t(dx::ColumnMetric::MsgAge)].max=899;CHECK(activity.rows(q).size()==2);
+  }
+ }
+ CHECK(dx::ageText(midnight,midnight)=="0s ago"&&dx::ageText(midnight,midnight+1)=="1s ago");
+ CHECK(dx::ageText(midnight,midnight+599)=="599s ago"&&dx::ageText(midnight,midnight+600)=="600s ago");
+ CHECK(dx::ageText(midnight,midnight+601)=="2024-01-01 00:00:00 UTC");
+ CHECK(dx::ageText(midnight-1,midnight+600)=="2023-12-31 23:59:59 UTC");
+ CHECK(dx::ageText(midnight,midnight+86400)=="2024-01-01 00:00:00 UTC");
+ CHECK(dx::ageText(midnight+10,midnight)=="0s ago"&&dx::ageText(0,midnight)=="--"&&dx::ageText(-1,midnight)=="--");
+ {dx::Store mixed(":memory:");int sender=0;for(int seconds:{5,599,600,601,3600,86400}){dx::Decode d;d.utc=midnight-seconds;d.dial=7074000;d.mode="FT8";d.message="CQ K"+std::to_string(++sender)+"AAA FN42";CHECK(mixed.insert(d,{39.5,33}));}
+  for(bool messages:{false,true})for(int sort:{0,16,17})for(bool descending:{false,true}){
+   dx::Query q;q.messages=messages;q.uniqueCalls=!messages;q.sort=sort;q.descending=descending;q.referenceUtc=midnight;auto rows=mixed.rows(q);CHECK(rows.size()==6);
+   auto timestamp=[sort](const dx::Row& row){return sort==16?row.firstHeardUtc:sort==17?row.stationFirstHeardUtc:row.decode.utc;};
+   for(size_t i=1;i<rows.size();i++)CHECK(descending?timestamp(rows[i-1])>=timestamp(rows[i]):timestamp(rows[i-1])<=timestamp(rows[i]));
+   q.filter.columnRanges[size_t(dx::ColumnMetric::MsgAge)].min=600;auto older=mixed.rows(q);CHECK(older.size()==4);
+   for(const auto& row:older)CHECK(midnight-row.decode.utc>=600);
+  }
+ }
  auto path=std::filesystem::temp_directory_path()/("dx-columns-"+std::to_string(getpid())+".sqlite3");
  std::vector<dx::TableColumnSetting> columns;for(int i=0;i<18;i++)columns.push_back({17-i,85.5f+i*10,i!=8});
  const auto saved=dx::columnSettingsJson(columns);auto decoded=dx::columnSettingsFromJson(saved,18);CHECK(decoded&&dx::columnSettingsJson(*decoded)==saved);

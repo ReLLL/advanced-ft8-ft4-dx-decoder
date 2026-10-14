@@ -32,6 +32,7 @@ Store::Store(const std::filesystem::path& file){
  "CREATE INDEX IF NOT EXISTS by_time ON decodes(utc);CREATE INDEX IF NOT EXISTS by_station ON decodes(call,dial,mode,utc);"
  "CREATE INDEX IF NOT EXISTS by_message ON decodes(call,dial,mode,message,utc);"
  "CREATE INDEX IF NOT EXISTS by_call_message ON decodes(call,message,utc);"
+ "CREATE INDEX IF NOT EXISTS by_call_time ON decodes(call,utc);"
  "CREATE INDEX IF NOT EXISTS by_country ON decodes(country,utc);CREATE INDEX IF NOT EXISTS by_grid ON decodes(grid,utc);CREATE INDEX IF NOT EXISTS by_distance ON decodes(km DESC,utc DESC);"
  "CREATE TABLE IF NOT EXISTS stations(call TEXT,dial INTEGER,mode TEXT,utc INTEGER,count INTEGER,payload TEXT,PRIMARY KEY(call,dial,mode));"
  "CREATE TABLE IF NOT EXISTS ignored_transmitters(call TEXT PRIMARY KEY);"
@@ -147,7 +148,8 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
  else {
   // FT8/FT4 receptions can share a slot timestamp. The last inserted decode
   // wins that tie, keeping message text consistent with the station cache.
-  sql="SELECT * FROM (SELECT *,count(*) OVER (PARTITION BY "+group+") AS row_count,row_number() OVER (PARTITION BY "+group+" ORDER BY utc DESC,rowid DESC) AS latest_row FROM decodes WHERE "+where+") WHERE latest_row=1";
+  // Rank compact row IDs before fetching JSON, rather than sorting every payload.
+  sql="SELECT d.*,latest.row_count FROM decodes AS d JOIN (SELECT rowid AS reception_id,count(*) OVER (PARTITION BY "+group+") AS row_count,row_number() OVER (PARTITION BY "+group+" ORDER BY utc DESC,rowid DESC) AS latest_row FROM decodes WHERE "+where+") AS latest ON d.rowid=latest.reception_id WHERE latest.latest_row=1";
  }
  if(countOnly&&!f.hasColumnRanges())sql="SELECT count(*) FROM ("+sql+")";
  else {
