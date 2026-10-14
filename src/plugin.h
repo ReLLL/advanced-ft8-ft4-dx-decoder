@@ -9,7 +9,13 @@
 #include <dsp/sink/handler_sink.h>
 #include <dsp/demod/ssb.h>
 #include <dsp/multirate/rational_resampler.h>
+#if DX_HOST_BROWN
 #include <utils/cty.h>
+using DXCountryDatabase=utils::CTY;
+#else
+#include "country_database.h"
+using DXCountryDatabase=dx::CountryDatabase;
+#endif
 #include <map>
 class DXNotebook;
 namespace dx {std::optional<std::string> chooseCsvLog(const std::string& current);bool playAlertSound(const std::string& name);std::vector<unsigned char> homeIconPixels();std::vector<unsigned char> trophyIconPixels();std::vector<unsigned char> flagIconPixels(const std::string& code);void openCallsignLookup(const std::string& call,int provider);}
@@ -29,20 +35,35 @@ class DXNotebook:public ModuleManager::Instance {
 public:
  explicit DXNotebook(std::string name);~DXNotebook();void postInit()override{}
  void enable()override;void disable()override;bool isEnabled()override{return enabled_;}
- std::string handleDebugCommand(const std::string&,const std::string&)override;
+ std::string handleDebugCommand(const std::string&,const std::string&)
+#if DX_HOST_BROWN
+ override
+#endif
+ ;
  dx::Engine& engine(){return *engine_;}
 private:
  void tableTabs();void countryTable(const std::vector<dx::CountrySummary>& rows);
  int tableTab_=0,messageSort_=18,countrySort_=5;bool messageDescending_=true,countryDescending_=true,tabsApplied_=false,messageColumnsApplied_=false;
  std::vector<dx::TableColumnSetting> messageColumns_,countryColumns_;bool countryColumnsApplied_=false;
- void cornerNotifications(ImGui::WaterFall::WaterfallDrawArgs args);
+#if DX_HOST_BROWN
+ using CornerBounds=ImGui::WaterFall::WaterfallDrawArgs;
+#else
+ struct CornerBounds {ImVec2 wfMin,wfMax;};
+ ImGuiID drawHook_=0;CornerBounds cornerBounds_;
+#endif
+ void cornerNotifications(CornerBounds args);
  unsigned int countryFlagIcon(const std::string& country);void countryFlag(const std::string& country);
  bool cornerEnabled_=true,cornerVisible_=false,distanceMiles_=false;int cornerSeconds_=10;ImVec2 cornerMin_,cornerMax_;std::map<std::string,std::string> flagCodes_;
  std::map<std::string,unsigned int> cornerIcons_;std::map<std::string,std::pair<std::string,int64_t>> cornerChanges_;
+#if DX_HOST_BROWN
  EventHandler<ImGui::WaterFall::WaterfallDrawArgs> cornerHandler_;
+#endif
  void sidebar();void draw();void openWindow();void closeWindow();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void stationMenu(const dx::Decode&,const std::vector<dx::Row>&);void ignoreConfirmation();void filters(dx::Filter&,const char*);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details();void save();void refresh();bool historyOptions(bool compact=false);bool timeWindow(const char* label,int& choice);void migration();
  std::pair<std::string,std::string> lookupCountry(const std::string& call)const;
- std::string name_;std::filesystem::path root_;std::unique_ptr<dx::Engine> engine_;dx::Point home_;utils::CTY countries_;
+ std::string name_;std::filesystem::path root_;std::unique_ptr<dx::Engine> engine_;dx::Point home_;DXCountryDatabase countries_;
+#if !DX_HOST_BROWN
+ std::string receiverGrid_,receiverCall_;bool receiverGridError_=false;
+#endif
  bool enabled_=true,open_=true,present_=true,paused_=false,ft8_=true,ft4_=true,ownsGesture_=false,popup_=false,settingsLoaded_=false;
  bool link_=false;int view_=0,tableTime_=2,mapTime_=4,sort_=17;bool descending_=true;float split_=.53f;
  double center_=0,rate_=0,lastRefresh_=0;uint64_t generation_=1;ImVec2 windowMin_,windowMax_;

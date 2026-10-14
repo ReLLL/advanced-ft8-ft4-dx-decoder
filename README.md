@@ -1,27 +1,25 @@
 # Advanced FT8/FT4 DX Decoder
 
-**FT8 and FT4 decoding, a DX map, and reception logging inside SDR++Brown for macOS.** See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
+**FT8 and FT4 decoding, a DX map, and reception logging inside SDR++ and SDR++Brown for macOS.** See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
 
 Created by [ReLLL](https://github.com/ReLLL). Free software under GPL-3.0-or-later.
 
 ## Download and install
 
-[Download the latest release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest). The prebuilt package is for **Apple Silicon Macs running macOS 15 or later**, with **SDR++Brown 1.2.1, August 4, 2026 build** installed at `/Applications/SDR++Brown.app`. Tested on macOS 26. Other Brown builds may require recompilation against their matching ABI. This is a Brown plugin; it requires the host application.
+[Download the latest release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26. Other host builds may require matching binaries; the installer checks compatibility automatically.
 
-1. Install [SDR++Brown](https://sdrpp-brown.san.systems/), open it once, then quit it.
-2. Download and extract the `macos-arm64.zip` release package.
-3. Open Terminal in the extracted folder and run:
+1. Install [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus/releases/tag/nightly) or [SDR++Brown](https://sdrpp-brown.san.systems/) in **Applications**. Skip this if you already have the supported app installed.
+2. Download and open `installer-macos-arm64.dmg`, then open **Install Advanced FT8-FT4 DX Decoder**. The ZIP includes the same installer if you prefer to extract it.
+3. The installer detects the installed radio app. If both are installed, choose the one you want. Confirm your **Home locator** if you know it; an existing locator is prefilled. Click **Install**. First-run settings are prepared automatically if needed; an open host is asked to quit normally before its configuration is updated.
+4. Click **Open SDR++** or **Open SDR++Brown**. Open **Advanced FT8/FT4 DX Decoder** from the sidebar.
+5. If you skipped the home locator, set your actual **Maidenhead grid** before relying on distances and bearings. In **Brown**, expand the left **Source** panel and find **My Grid** below **Operator Callsign**. Enter a four- or six-character locator; Brown shows coordinates beside a valid grid, or **Invalid**. In **standard SDR++**, open the plugin's **Settings > General > Maidenhead grid**; four, six or eight characters are accepted. For example, `KM69` and `KM69xx` show the format; use your own locator. More characters give a smaller location area. Distances and bearings use the grid center. Standard SDR++ keeps distances and the home marker unavailable until a valid home locator is configured.
+6. Start your SDR and tune a capture covering an FT8 or FT4 dial frequency. Eligible presets show **Receiving**.
 
-   ```sh
-   python3 scripts/install.py --build bin
-   ```
+No Python, Terminal, Homebrew, developer tools or administrator password is needed for the native installer. It verifies packaged files and the selected host build, backs up the configuration and any previous plugin, and installs outside the host's signed application. Each host has its own binary, profile and reception history. Settings and logs are preserved; **Choose profile...** supports a non-default profile. [Installation and removal](docs/INSTALL.md).
 
-4. Start Brown. Open **Advanced FT8/FT4 DX Decoder** from the sidebar.
-5. Set your home Maidenhead grid in Brown, start your SDR, and tune a capture covering an FT8 or FT4 dial frequency. Eligible presets show **Receiving**.
+The **SDR++ build uses standard SDR++ APIs**, with its own location and country data; it does not require Brown to be installed. Brown keeps its native integration and existing behavior. The shared FT8/FT4 decoder uses pinned MSHV-derived source, while host headers and runtime libraries match the selected application.
 
-Python 3 is needed for installation. The installer backs up Brown's configuration and any previous plugin, then installs outside Brown's signed application. It preserves the existing decoder and map helper. [Installation and removal](docs/INSTALL.md).
-
-## What you can see in 1.0.24
+## What you can see in 1.0.25
 
 - **At a glance:** unique countries, unique stations, farthest distance with country, active decoding uptime, stations heard in the last five minutes, and the latest five calls with country, distance and receiver SNR.
 - **Three reception views:** Unique stations, All messages and Countries heard. Repeated messages stay visible in All messages; country summaries show distinct senders, mean distance/SNR and the last five senders. Each table remembers its layout and sort.
@@ -37,7 +35,7 @@ Python 3 is needed for installation. The installer backs up Brown's configuratio
 - **Optional GridTracker feed:** direct local UDP using WSJT-X packets, initially off, with `127.0.0.1:2237` ready to enable. No separate bridge is required for this feed.
 - **Quiet defaults:** alert sounds, map marker counts and both saved-history options start off. Individual alert sounds are selectable.
 
-Closing the decoder window keeps reception, logging, alerts and integrations running while the sidebar switch is on. Open brings the window forward with current data and preserves its size and position. Brown starts with empty visible views and fresh session statistics by default. **Use saved history for stats** includes retained receptions in the totals. **Use saved history for everything** also restores the map, table and first-heard times. Both start off and load in the background; uptime always measures this session's active decoding. Live reception, table/map updates and logging continue while history is enabled. Clear asks for confirmation and preserves saved logs. Its checked **Reset stats** option returns to session mode and turns off both history options.
+Closing the decoder window keeps reception, logging, alerts and integrations running while the sidebar switch is on. Open brings the window forward with current data and preserves its size and position. Each host starts with empty visible views and fresh session statistics by default. **Use saved history for stats** includes retained receptions in the totals. **Use saved history for everything** also restores the map, table and first-heard times. Both start off and load in the background; uptime always measures this session's active decoding. Live reception, table/map updates and logging continue while history is enabled. Clear asks for confirmation and preserves saved logs. Its checked **Reset stats** option returns to session mode and turns off both history options.
 
 Map markers and table rows share station actions. Ignore transmitter accepts unresolved and malformed identities, asks for confirmation, then deletes matching saved receptions and blocks future ones; statistics update in the background. Rows with no transmitter identity can ignore that exact message without deleting unrelated unknown messages. Unignore allows future receptions without restoring deleted records.
 

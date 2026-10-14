@@ -1,0 +1,230 @@
+import AppKit
+import Foundation
+
+func hostIsRunning(_ manifest: PayloadManifest) throws -> Bool {
+    if NSRunningApplication.runningApplications(withBundleIdentifier: manifest.hostBundleID).contains(where: { !$0.isTerminated }) { return true }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+    process.arguments = ["-f", NSRegularExpression.escapedPattern(for: manifest.appPath + "/Contents/MacOS/sdrpp")]
+    process.standardOutput = Pipe(); process.standardError = Pipe()
+    try process.run(); process.waitUntilExit()
+    guard [0, 1].contains(process.terminationStatus) else {
+        throw InstallError.message("Unable to check whether the radio application is running. Nothing was changed.")
+    }
+    return process.terminationStatus == 0
+}
+
+final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private var window: NSWindow!
+    private let status = NSTextField(wrappingLabelWithString: "")
+    private let profileLabel = NSTextField(wrappingLabelWithString: "")
+    private let primary = NSButton(title: "Install", target: nil, action: nil)
+    private let choose = NSButton(title: "Choose profile...", target: nil, action: nil)
+    private let cancel = NSButton(title: "Cancel", target: nil, action: nil)
+    private let help = NSButton(title: "Installation help", target: nil, action: nil)
+    private let progress = NSProgressIndicator()
+    private let hosts = NSPopUpButton()
+    private let homeGrid = NSTextField()
+    private var payloads: [URL] = []
+    private var manifests: [PayloadManifest] = []
+    private var selectedHost = 0
+    private var profile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/sdrpp-brown")
+    private var host: URL { URL(fileURLWithPath: manifests[selectedHost].appPath) }
+    private var busy = false
+    private var receipt: InstallReceipt?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        let menu = NSMenu()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Quit Installer", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let item = NSMenuItem(); item.submenu = appMenu; menu.addItem(item)
+        NSApp.mainMenu = menu
+        if let resources = Bundle.main.resourceURL {
+            for name in ["Payload", "PayloadSDRPP"] {
+                let path = resources.appendingPathComponent(name)
+                if let data = try? Data(contentsOf: path.appendingPathComponent("manifest.json")),
+                   let manifest = try? JSONDecoder().decode(PayloadManifest.self, from: data) {
+                    payloads.append(path); manifests.append(manifest)
+                }
+            }
+        }
+        if let index = manifests.indices.first(where: { FileManager.default.fileExists(atPath: manifests[$0].appPath) }) { selectedHost = index }
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 550, height: 460),
+            styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.title = "Install Advanced FT8/FT4 DX Decoder"
+        window.delegate = self
+        window.center()
+        let stack = NSStackView()
+        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        window.contentView!.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 28),
+            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -28),
+            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24)
+        ])
+        let title = NSTextField(wrappingLabelWithString: "Advanced FT8/FT4 DX Decoder")
+        title.font = .boldSystemFont(ofSize: 22)
+        stack.addArrangedSubview(title)
+        let intro = NSTextField(wrappingLabelWithString: "Install for SDR++ or SDR++Brown. Choose your radio application below.")
+        intro.font = .systemFont(ofSize: 13)
+        stack.addArrangedSubview(intro)
+        let safety = NSTextField(wrappingLabelWithString: "Your settings and reception logs stay in place. The installer saves a backup before making changes.")
+        safety.textColor = .secondaryLabelColor; safety.font = .systemFont(ofSize: 12)
+        stack.addArrangedSubview(safety)
+        for manifest in manifests { hosts.addItem(withTitle: manifest.hostName) }
+        hosts.selectItem(at: selectedHost); hosts.target = self; hosts.action = #selector(selectHost)
+        if manifests.count > 1 { stack.addArrangedSubview(hosts) }
+        let location = NSStackView(views: [NSTextField(labelWithString: "Home locator"), homeGrid])
+        location.orientation = .horizontal; location.spacing = 12
+        homeGrid.placeholderString = "Your grid, e.g. KM69xx (optional)"
+        homeGrid.widthAnchor.constraint(equalToConstant: 290).isActive = true
+        stack.addArrangedSubview(location)
+        profileLabel.font = .systemFont(ofSize: 11); profileLabel.textColor = .secondaryLabelColor
+        stack.addArrangedSubview(profileLabel)
+        status.font = .systemFont(ofSize: 13); status.setAccessibilityIdentifier("installStatus")
+        stack.addArrangedSubview(status)
+        progress.style = .spinning; progress.controlSize = .small; progress.isDisplayedWhenStopped = false
+        stack.addArrangedSubview(progress)
+        let buttons = NSStackView(views: [help, NSView(), cancel, primary])
+        buttons.orientation = .horizontal; buttons.spacing = 12
+        buttons.translatesAutoresizingMaskIntoConstraints = false
+        window.contentView!.addSubview(buttons)
+        NSLayoutConstraint.activate([
+            buttons.leadingAnchor.constraint(equalTo: stack.leadingAnchor),
+            buttons.trailingAnchor.constraint(equalTo: stack.trailingAnchor),
+            buttons.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor, constant: -24)
+        ])
+        for button in [primary, choose, cancel, help] { button.bezelStyle = .rounded; button.target = self }
+        primary.action = #selector(install); primary.keyEquivalent = "\r"
+        primary.setAccessibilityIdentifier("installButton")
+        cancel.action = #selector(close); cancel.keyEquivalent = "\u{1b}"
+        choose.action = #selector(chooseProfile)
+        help.action = #selector(openHelp)
+        stack.addArrangedSubview(choose)
+        selectHost()
+        window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func installer() throws -> PluginInstaller {
+        guard manifests.indices.contains(selectedHost) else { throw InstallError.message("The installer package is incomplete.") }
+        let manifest = manifests[selectedHost]
+        return try PluginInstaller(payload: payloads[selectedHost], brownRunning: { try hostIsRunning(manifest) })
+    }
+
+    private func refresh() {
+        let folder = manifests.indices.contains(selectedHost) ? manifests[selectedHost].profileFolder : "sdrpp-brown"
+        profileLabel.stringValue = profile == FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/" + folder)
+            ? "Install for the current macOS user in the normal profile."
+            : "Selected profile: " + profile.lastPathComponent
+        do {
+            let engine = try installer()
+            try engine.validatePayload(); try engine.validateHost(host)
+            let exists = FileManager.default.fileExists(atPath: profile.appendingPathComponent("config.json").path)
+            if !exists { status.stringValue = "Install will prepare \(engine.manifest.hostName)'s settings automatically."; primary.title = "Install" }
+            else if try hostIsRunning(engine.manifest) { status.stringValue = "\(engine.manifest.hostName) is open. Install will ask it to quit safely first."; primary.title = "Quit and Install" }
+            else { status.stringValue = "Ready to install for \(engine.manifest.hostName)."; primary.title = "Install" }
+            primary.isEnabled = true
+        } catch {
+            status.stringValue = error.localizedDescription; primary.isEnabled = false
+        }
+    }
+
+    @objc private func install() {
+        if let installed = receipt {
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.arguments = ["-r", installed.profile.path]
+            primary.isEnabled = false
+            NSWorkspace.shared.openApplication(at: host, configuration: configuration) { _, error in
+                DispatchQueue.main.async {
+                    if let error { self.failed(error) } else { NSApp.terminate(nil) }
+                }
+            }
+            return
+        }
+        let location = homeGrid.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let selectedProfile = profile, selectedApp = host
+        let engine: PluginInstaller
+        do { engine = try installer(); try engine.validateHomeGrid(location) } catch { failed(error); return }
+        busy = true; primary.isEnabled = false; choose.isEnabled = false; cancel.isEnabled = false; hosts.isEnabled = false; homeGrid.isEnabled = false
+        progress.startAnimation(nil); status.stringValue = "Preparing installation..."
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let config = selectedProfile.appendingPathComponent("config.json")
+                if !FileManager.default.fileExists(atPath: config.path) {
+                    _ = DispatchQueue.main.sync { NSWorkspace.shared.open(selectedApp) }
+                    for _ in 0..<300 {
+                        if FileManager.default.fileExists(atPath: config.path) { break }
+                        Thread.sleep(forTimeInterval: 0.1)
+                    }
+                    guard FileManager.default.fileExists(atPath: config.path) else { throw InstallError.message("The radio application needs first-run setup. Open it once, then retry Install.") }
+                }
+                let apps = NSRunningApplication.runningApplications(withBundleIdentifier: engine.manifest.hostBundleID)
+                for app in apps where !app.isTerminated {
+                    guard app.terminate() else { throw InstallError.message("The radio application could not quit automatically. Quit it and try again.") }
+                }
+                if !apps.isEmpty {
+                    for _ in 0..<100 {
+                        if try !hostIsRunning(engine.manifest) { break }
+                        Thread.sleep(forTimeInterval: 0.1)
+                    }
+                }
+                let installed = try engine.install(profile: selectedProfile, host: selectedApp, homeGrid: location)
+                DispatchQueue.main.async { self.finished(installed) }
+            } catch { DispatchQueue.main.async { self.failed(error) } }
+        }
+    }
+
+    private func finished(_ installed: InstallReceipt) {
+        receipt = installed; busy = false; progress.stopAnimation(nil)
+        status.stringValue = "Installed. Open \(manifests[selectedHost].hostName) and find Advanced FT8/FT4 DX Decoder in the sidebar."
+        status.textColor = .systemGreen
+        primary.title = "Open \(manifests[selectedHost].hostName)"; primary.isEnabled = true
+        cancel.title = "Done"; cancel.isEnabled = true
+        choose.title = "Show backup"; choose.isEnabled = true; choose.action = #selector(showBackup)
+    }
+
+    private func failed(_ error: Error) {
+        busy = false; progress.stopAnimation(nil)
+        status.stringValue = error.localizedDescription; status.textColor = .systemRed
+        primary.title = "Retry"; primary.isEnabled = true; cancel.isEnabled = true; choose.isEnabled = true; hosts.isEnabled = true; homeGrid.isEnabled = true
+    }
+
+    @objc private func chooseProfile() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
+        panel.message = "Choose the radio application's profile folder containing config.json."
+        if panel.runModal() == .OK, let url = panel.url {
+            guard FileManager.default.fileExists(atPath: url.appendingPathComponent("config.json").path) else {
+                failed(InstallError.message("Choose a profile folder containing config.json.")); return
+            }
+            profile = url; loadHomeGrid(); status.textColor = .labelColor; refresh()
+        }
+    }
+    @objc private func showBackup() { if let receipt { NSWorkspace.shared.open(receipt.backup) } }
+    @objc private func selectHost() {
+        selectedHost = hosts.indexOfSelectedItem
+        guard manifests.indices.contains(selectedHost) else { refresh(); return }
+        profile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/" + manifests[selectedHost].profileFolder)
+        loadHomeGrid()
+        status.textColor = .labelColor; refresh()
+    }
+    private func loadHomeGrid() {
+        homeGrid.stringValue = ""
+        if let data = try? Data(contentsOf: profile.appendingPathComponent("config.json")),
+           let config = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            if manifests[selectedHost].profileFolder == "sdrpp" {
+                homeGrid.stringValue = (config["moduleInstances"] as? [String: [String: Any]])?[PluginInstaller.instance]?["receiverGrid"] as? String ?? ""
+            } else { homeGrid.stringValue = config["operatorLocation"] as? String ?? "" }
+        }
+    }
+    @objc private func openHelp() { NSWorkspace.shared.open(URL(string: "https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/blob/main/docs/INSTALL.md")!) }
+    @objc private func close() { if !busy { NSApp.terminate(nil) } }
+    func windowShouldClose(_ sender: NSWindow) -> Bool { if busy { return false }; NSApp.terminate(nil); return true }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { busy ? .terminateCancel : .terminateNow }
+}
+
+let delegate = InstallerWindow()
+NSApplication.shared.delegate = delegate
+NSApplication.shared.run()

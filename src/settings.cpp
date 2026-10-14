@@ -2,6 +2,7 @@
 #include "plugin.h"
 #include <cstdio>
 #include <cfloat>
+#include <core.h>
 
 namespace {
 bool text(const char* label,std::string& value){char buffer[256];std::snprintf(buffer,sizeof(buffer),"%s",value.c_str());bool changed=ImGui::InputText(label,buffer,sizeof(buffer));if(changed)value=buffer;return changed;}
@@ -26,6 +27,11 @@ void DXNotebook::settingsWindow() {
   ImGui::TextUnformatted(pages[settingsPage_]);ImGui::Separator();bool changed=false;
   ImGui::PushItemWidth(std::min(260.f,ImGui::GetContentRegionAvail().x*.56f));
   if(settingsPage_==0){
+#if !DX_HOST_BROWN
+   ImGui::TextUnformatted("Home location");if(text("Maidenhead grid",receiverGrid_)){receiverGrid_=dx::upper(receiverGrid_);receiverGridError_=!receiverGrid_.empty()&&!dx::gridPoint(receiverGrid_);if(!receiverGridError_){core::configManager.acquire();core::configManager.conf["moduleInstances"][name_]["receiverGrid"]=receiverGrid_;core::configManager.release(true);if(receiverGrid_.empty()){home_={NAN,NAN};engine_->home(home_);}changed=true;}}
+   if(receiverGridError_)ImGui::TextColored({1,.55f,.4f,1},"Use a four-, six- or eight-character locator.");else ImGui::TextDisabled("Your home grid sets the map origin, distances and bearings.");
+   if(text("Receiver callsign (optional)",receiverCall_)){core::configManager.acquire();core::configManager.conf["moduleInstances"][name_]["receiverCall"]=receiverCall_;core::configManager.release(true);changed=true;}ImGui::Separator();
+#endif
    changed|=ImGui::Checkbox("Corner notifications on waterfall",&cornerEnabled_);if(ImGui::IsItemHovered())ImGui::SetTooltip("Every new reception appears briefly, including repeats. The farthest reception stays below the list with its flag. Only the Farthest label is gold. New rows glow for two seconds.");
    ImGui::BeginDisabled(!cornerEnabled_);changed|=ImGui::SliderInt("Notification duration (seconds)",&cornerSeconds_,2,120);ImGui::EndDisabled();
    int distanceUnit=distanceMiles_?1:0;const char* units[]={"Kilometers (km)","Miles (mi)"};if(ImGui::Combo("Distance units",&distanceUnit,units,2)){distanceMiles_=distanceUnit==1;changed=true;}

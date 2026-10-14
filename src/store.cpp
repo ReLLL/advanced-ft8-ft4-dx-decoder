@@ -97,7 +97,7 @@ bool Store::insert(Decode& d,Point home,const std::function<std::pair<std::strin
   auto s=prepare(db_,"SELECT payload FROM decodes WHERE call=? AND utc<=? AND utc>=? AND grid!='' AND json_extract(payload,'$.grid_source')='received' ORDER BY utc DESC LIMIT 1");bindText(s.get(),1,i.transmitter);sqlite3_bind_int64(s.get(),2,d.utc);sqlite3_bind_int64(s.get(),3,d.utc-21600);
   if(step(db_,s.get())==SQLITE_ROW){auto last=Decode::fromJson(Json::parse(column(s.get(),0)));if(last.gridSource=="received"){i.grid=last.identity.grid;d.gridSource="cached";d.gridUtc=last.utc;d.position=gridPoint(i.grid);}}
  }
- if(d.position){auto b=distanceBearing(home,*d.position);d.km=b.first;d.bearing=b.second;}
+ d.km.reset();d.bearing.reset();if(d.position&&std::isfinite(home.lat)&&std::isfinite(home.lon)){auto b=distanceBearing(home,*d.position);d.km=b.first;d.bearing=b.second;}
  auto key=d.key();auto duplicate=prepare(db_,"SELECT 1 FROM decodes WHERE key=?");bindText(duplicate.get(),1,key);if(step(db_,duplicate.get())==SQLITE_ROW)return false;
  exec("BEGIN IMMEDIATE");try{
   auto heard=[&](const std::string& kind,const std::string& value){if(value.empty()||value.front()=='<')return false;auto s=prepare(db_,"INSERT OR IGNORE INTO heard VALUES(?,?,?)");bindText(s.get(),1,kind);bindText(s.get(),2,value);sqlite3_bind_int64(s.get(),3,d.utc);step(db_,s.get());return sqlite3_changes(db_)==1;};
@@ -207,11 +207,11 @@ void Store::exportRows(const Query& q,const std::filesystem::path& path,bool csv
 std::ofstream file(path);if(!file)throw std::runtime_error("Export file unavailable");if(csv)file<<"UTC,Call,Called,Country,Grid,Mode,DialHz,AudioHz,SNRdB,DT,ApproxKm,Message\n";else file<<"[\n";
  int offset=0;bool comma=false;for(;;){auto page=rows(q,offset,1000);if(page.empty())break;for(auto& row:page){auto& d=row.decode;if(csv)file<<d.utc<<','<<csvField(d.identity.transmitter)<<','<<csvField(d.identity.called)<<','<<csvField(d.country)<<','<<csvField(d.identity.grid)<<','<<d.mode<<','<<d.dial<<','<<d.audio<<','<<d.snr<<','<<(d.dt?std::to_string(*d.dt):"")<<','<<(d.km?std::to_string(*d.km):"")<<','<<csvField(d.message)<<'\n';else{if(comma)file<<",\n";file<<d.json().dump();comma=true;}}offset+=int(page.size());}if(!csv)file<<"\n]\n";if(!file)throw std::runtime_error("Export write failed");}
 void Store::rebaseDistances(Point home){
- auto origin=Json::array({home.lat,home.lon});if(getSetting("distance_origin",Json(nullptr))==origin)return;
+ auto origin=std::isfinite(home.lat)&&std::isfinite(home.lon)?Json::array({home.lat,home.lon}):Json(nullptr);if(getSetting("distance_origin",Json(nullptr))==origin)return;
  exec("BEGIN IMMEDIATE");try{
   auto read=prepare(db_,"SELECT rowid,payload FROM decodes");auto write=prepare(db_,"UPDATE decodes SET km=?,payload=? WHERE rowid=?");
   double farthest=0;std::string country;
-  while(step(db_,read.get())==SQLITE_ROW){auto d=Decode::fromJson(Json::parse(column(read.get(),1)));d.km.reset();d.bearing.reset();if(d.position){auto path=distanceBearing(home,*d.position);d.km=path.first;d.bearing=path.second;}
+  while(step(db_,read.get())==SQLITE_ROW){auto d=Decode::fromJson(Json::parse(column(read.get(),1)));d.km.reset();d.bearing.reset();if(d.position&&std::isfinite(home.lat)&&std::isfinite(home.lon)){auto path=distanceBearing(home,*d.position);d.km=path.first;d.bearing=path.second;}
    if(d.km&&d.gridSource=="received"&&*d.km>farthest){farthest=*d.km;country=d.country;}
    sqlite3_reset(write.get());sqlite3_clear_bindings(write.get());if(d.km)sqlite3_bind_double(write.get(),1,*d.km);else sqlite3_bind_null(write.get(),1);bindText(write.get(),2,d.json().dump());sqlite3_bind_int64(write.get(),3,sqlite3_column_int64(read.get(),0));step(db_,write.get());
   }

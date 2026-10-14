@@ -1,18 +1,23 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "plugin.h"
 #include <core.h>
+#if DX_HOST_BROWN
 #include <utils/cty.h>
+#endif
 #include <imgui_internal.h>
 #include <fstream>
 #include <dlfcn.h>
 #include <cmath>
 #include <cstdio>
+#include <chrono>
 #include <utils/opengl_include_code.h>
+#if DX_HOST_BROWN
 namespace utils {void loadCTY(const char*,const char*,CTY&);}
+#endif
 namespace {
-std::pair<std::string,std::string> countryFor(const utils::CTY& database,const std::string& input){
+std::pair<std::string,std::string> countryFor(const DXCountryDatabase& database,const std::string& input){
  std::string call=dx::upper(input);if(call.empty()||call.front()=='<'||call=="CQ"||call=="QRZ"||call=="DE")return {};
- const utils::CTY::DXCC* selected=nullptr;size_t length=0;
+ const DXCountryDatabase::DXCC* selected=nullptr;size_t length=0;
  for(const auto& entity:database.dxcc)for(const auto& prefix:entity.prefixes)if(prefix.exact&&call==prefix.value)return {dx::countryName(entity.name),entity.continent};
  // Portable operating prefixes override the home call. Routine /P and /M
  // suffixes do not claim an operating country.
@@ -34,16 +39,35 @@ void DXChannel::audio(dsp::stereo_t* input,int count,void* context){
  auto* c=static_cast<DXChannel*>(context);++c->blocks;if(c->resetRequested.exchange(false))c->capture.reset();if(!c->accept||count<=0||count>1000000){c->capture.reset();c->progress=0;return;}
  std::vector<dsp::stereo_t> out(size_t(count)+128);int size=c->resampler.process(count,input,out.data());if(size<=0)return;
  std::vector<float> mono(size_t(size),0);double power=0;for(int i=0;i<size;i++){mono[i]=out[i].l;power+=mono[i]*mono[i];}
- c->level=10*std::log10(std::max(1e-12,power/size));c->streamMs=sigpath::iqFrontEnd.getCurrentStreamTime();auto job=c->capture.feed(mono.data(),mono.size(),c->streamMs,c->preset.dial,c->preset.mode);c->samples=c->capture.samples();c->discontinuities=c->capture.discontinuities();
+ c->level=10*std::log10(std::max(1e-12,power/size));
+#if DX_HOST_BROWN
+ c->streamMs=sigpath::iqFrontEnd.getCurrentStreamTime();
+#else
+ c->streamMs=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#endif
+ auto job=c->capture.feed(mono.data(),mono.size(),c->streamMs,c->preset.dial,c->preset.mode);c->samples=c->capture.samples();c->discontinuities=c->capture.discontinuities();
  c->progress=c->capture.progress();if(job){if(c->replay)job->source="replay";c->owner->engine().enqueue(std::move(*job));}
 }
 DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
- const char* dataRoot=std::getenv("ADVANCED_DX_DATA_ROOT");root_=dataRoot&&*dataRoot?std::filesystem::path(dataRoot):std::filesystem::path(std::getenv("HOME"))/"Library/Application Support/SDR++Brown DX Notebook";
+ const char* dataRoot=std::getenv("ADVANCED_DX_DATA_ROOT");root_=dataRoot&&*dataRoot?std::filesystem::path(dataRoot):std::filesystem::path(std::getenv("HOME"))/
+#if DX_HOST_BROWN
+ "Library/Application Support/SDR++Brown DX Notebook";
+#else
+ "Library/Application Support/SDR++ DX Notebook";
+#endif
+#if DX_HOST_BROWN
  core::configManager.acquire();auto grid=core::configManager.conf.value("operatorLocation","KM69");core::configManager.release();home_=dx::gridPoint(grid).value_or(dx::Point{});
+#else
+ core::configManager.acquire();auto instance=core::configManager.conf["moduleInstances"].value(name_,dx::Json::object());receiverGrid_=instance.value("receiverGrid","");receiverCall_=instance.value("receiverCall","");core::configManager.release();home_=dx::gridPoint(receiverGrid_).value_or(dx::Point{NAN,NAN});
+#endif
  Dl_info module{};dladdr(static_cast<const void*>(&_INFO_),&module);auto binary=std::filesystem::path(module.dli_fname).parent_path();
  // Brown adds regional tables after cty.dat. Those describe provinces rather
  // than DXCC countries and must not inflate the countries-heard statistic.
+#if DX_HOST_BROWN
  core::configManager.acquire();auto resources=core::configManager.conf.value("resourcesDirectory","");core::configManager.release();utils::loadCTY((resources+"/cty/cty.dat").c_str(),"",countries_);
+#else
+ countries_.load(binary/"cty.dat");
+#endif
  tiles_=std::make_unique<dx::Tiles>(root_/"map-cache");
  engine_=std::make_unique<dx::Engine>(root_,binary/"dx_decoder",home_,[this](const std::string& call){return countryFor(countries_,call);});
  std::ifstream file(binary/"world.geojson");auto world=dx::Json::parse(file,nullptr,false);if(!world.is_discarded())for(const auto& f:world["features"]){
@@ -53,10 +77,22 @@ DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
   const auto& p=f["properties"];if(p.contains("LABEL_X")&&p.contains("LABEL_Y"))labels_.push_back({p.value("NAME_EN",p.value("NAME","")),{p["LABEL_Y"].get<double>(),p["LABEL_X"].get<double>()}});
  }
  flagCodes_["UNITEDSTATES"]="US";
+#if DX_HOST_BROWN
  cornerHandler_={[](ImGui::WaterFall::WaterfallDrawArgs args,void* p){static_cast<DXNotebook*>(p)->cornerNotifications(args);},this};gui::waterfall.afterWaterfallDraw.bindHandler(&cornerHandler_);
+#endif
  gui::menu.registerEntry(name_,[](void* p){static_cast<DXNotebook*>(p)->sidebar();},this,this);
+#if DX_HOST_BROWN
  drawHandler_={[](ImGuiContext*,void* p){static_cast<DXNotebook*>(p)->draw();},this};gui::mainWindow.onWaterfallDrawn.bindHandler(&drawHandler_);
- inputHandler_={[](ImGui::WaterFall::InputHandlerArgs,void* p){auto* s=static_cast<DXNotebook*>(p);if(!s->enabled_||(!s->open_&&!s->settingsVisible_&&!s->cornerVisible_))return;
+#else
+ ImGuiContextHook hook;hook.Type=ImGuiContextHookType_EndFramePre;hook.UserData=this;
+ hook.Callback=[](ImGuiContext*,ImGuiContextHook* h){auto* self=static_cast<DXNotebook*>(h->UserData);self->draw();self->cornerNotifications(self->cornerBounds_);};
+ drawHook_=ImGui::AddContextHook(ImGui::GetCurrentContext(),&hook);
+#endif
+ inputHandler_={[](ImGui::WaterFall::InputHandlerArgs args,void* p){auto* s=static_cast<DXNotebook*>(p);
+  #if !DX_HOST_BROWN
+  s->cornerBounds_={args.waterfallRectMin,args.waterfallRectMax};
+  #endif
+  if(!s->enabled_||(!s->open_&&!s->settingsVisible_&&!s->cornerVisible_))return;
   auto mouse=ImGui::GetMousePos();bool inside=mouse.x>=s->windowMin_.x&&mouse.x<=s->windowMax_.x&&mouse.y>=s->windowMin_.y&&mouse.y<=s->windowMax_.y;
   inside=(s->open_&&inside)||(s->settingsVisible_&&mouse.x>=s->settingsMin_.x&&mouse.x<=s->settingsMax_.x&&mouse.y>=s->settingsMin_.y&&mouse.y<=s->settingsMax_.y);
   inside|=s->cornerVisible_&&mouse.x>=s->cornerMin_.x&&mouse.x<=s->cornerMax_.x&&mouse.y>=s->cornerMin_.y&&mouse.y<=s->cornerMax_.y;
@@ -66,11 +102,23 @@ DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
   if(inside||s->ownsGesture_||s->popup_||(focused&&!clicked)){gui::waterfall.inputHandled=true;gui::mainWindow.lockWaterfallControls=true;}if(!down)s->ownsGesture_=false;
  },this};gui::waterfall.onInputProcess.bindHandler(&inputHandler_);
 }
-DXNotebook::~DXNotebook(){gui::waterfall.afterWaterfallDraw.unbindHandler(&cornerHandler_);for(const auto& icon:cornerIcons_)if(icon.second){auto texture=icon.second;glDeleteTextures(1,&texture);}gui::mainWindow.onWaterfallDrawn.unbindHandler(&drawHandler_);gui::waterfall.onInputProcess.unbindHandler(&inputHandler_);channels_.clear();gui::menu.removeEntry(name_);engine_.reset();if(homeIcon_)glDeleteTextures(1,&homeIcon_);}
+DXNotebook::~DXNotebook(){
+#if DX_HOST_BROWN
+ gui::waterfall.afterWaterfallDraw.unbindHandler(&cornerHandler_);gui::mainWindow.onWaterfallDrawn.unbindHandler(&drawHandler_);
+#else
+ ImGui::RemoveContextHook(ImGui::GetCurrentContext(),drawHook_);
+#endif
+ for(const auto& icon:cornerIcons_)if(icon.second){auto texture=icon.second;glDeleteTextures(1,&texture);}gui::waterfall.onInputProcess.unbindHandler(&inputHandler_);channels_.clear();gui::menu.removeEntry(name_);engine_.reset();if(homeIcon_)glDeleteTextures(1,&homeIcon_);
+}
 void DXNotebook::enable(){enabled_=true;open_=true;present_=true;engine_->resetStats();if(settingsLoaded_&&clearOnStart_){if(historyAll_)historyTableCleared_=historyMapCleared_=0;tableCleared_=mapCleared_=int64_t(time(nullptr))+1;selected_.reset();selectedCountry_.clear();engine_->selectCountry("");tableQuery_.offset=0;save();refresh();}}
 void DXNotebook::disable(){enabled_=false;cornerVisible_=false;channels_.clear();engine_->active(false);}
 void DXNotebook::metadata(){
- core::configManager.acquire();auto homeGrid=core::configManager.conf.value("operatorLocation","");auto operatorCall=core::configManager.conf.value("operatorCallsign","");core::configManager.release();if(auto point=dx::gridPoint(homeGrid);point&&(point->lat!=home_.lat||point->lon!=home_.lon)){home_=*point;engine_->home(home_);if(selected_&&selected_->position){auto path=dx::distanceBearing(home_,*selected_->position);selected_->km=path.first;selected_->bearing=path.second;}}
+#if DX_HOST_BROWN
+ core::configManager.acquire();auto homeGrid=core::configManager.conf.value("operatorLocation","");auto operatorCall=core::configManager.conf.value("operatorCallsign","");core::configManager.release();
+#else
+ auto homeGrid=receiverGrid_,operatorCall=receiverCall_;
+#endif
+ if(auto point=dx::gridPoint(homeGrid);point&&(point->lat!=home_.lat||point->lon!=home_.lon)){home_=*point;engine_->home(home_);if(selected_&&selected_->position){auto path=dx::distanceBearing(home_,*selected_->position);selected_->km=path.first;selected_->bearing=path.second;}}
  double center=gui::waterfall.getCenterFrequency(),rate=sigpath::iqFrontEnd.getSampleRate();bool playing=gui::mainWindow.isPlaying();
  if(center!=center_||rate!=rate_){channels_.clear();center_=center;rate_=rate;}
  auto eligible=dx::eligible(center,gui::waterfall.getBandwidth(),presets_);

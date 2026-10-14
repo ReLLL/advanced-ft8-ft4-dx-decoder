@@ -105,7 +105,9 @@ void Engine::storeLoop(){
   {std::lock_guard<std::mutex> lock(mutex_);if(stopping_&&decoderDone_&&writes_.empty()&&pendingSettings_.empty()&&moderation_.empty())break;if(pendingHome_){home_=*pendingHome_;pendingHome_.reset();}}
   try{
   if(!store){store=std::make_unique<Store>(root_/"history.sqlite3");store->reclassifyCountries(country_);startAfterId_=arrivalCursor_=statsAfterId_=store->lastReceptionId();statsSince_=startedAt_;seconds=store->getSetting("active_seconds",0.).get<double>();auto c=store->getSetting("log_cursor",Json::object());logPosition_=c.value("position",int64_t(0));logInode_=c.value("inode",uint64_t(0));logAnchor_=c.value("anchor","");
+#if DX_HOST_BROWN
    auto config=root_.parent_path()/"sdrpp-brown"/"ft8_decoder_config.json";std::ifstream f(config);Json j=Json::parse(f,nullptr,false);if(!j.is_discarded())for(auto& entry:j.items())if(entry.value().contains("allTxtPath"))allTxt_=entry.value().value("allTxtPath","");
+#endif
   }
   store->rebaseDistances(home_);
   {std::lock_guard<std::mutex> lock(mutex_);if(pendingStatsReset_){statsAfterId_=store->lastReceptionId();statsSince_=now();sessionSeconds_=0;status_.newestReceptionUtc=0;status_.arrivals.clear();cornerFeed_.clear();pendingStatsReset_=false;}}
@@ -130,7 +132,9 @@ void Engine::storeLoop(){
   if(exportJob){store->exportRows(std::get<0>(*exportJob),std::get<1>(*exportJob),std::get<2>(*exportJob));std::lock_guard<std::mutex> lock(mutex_);status_.notice="Export saved";}
   auto t=monotonicMs();if(active){auto elapsed=std::min<int64_t>(t-tick,1000)/1000.;seconds+=elapsed;sessionSeconds_+=elapsed;}tick=t;
   if(t-lastSave>1000){store->setSetting("active_seconds",seconds);lastSave=t;}
+#if DX_HOST_BROWN
   if(t-lastImport>250){auto added=store->importBridge(root_.parent_path()/"FT8 Map"/"history.sqlite3",home_,country_);importText(*store);lastImport=t;dirty=dirty||added>0;baseline=false;}
+#endif
   for(auto& entry:store->logRows(arrivalCursor_,1000)){arrivalCursor_=entry.first;auto& d=entry.second;if(d.source=="legacy"&&d.utc<startedAt_)continue;cornerFeed_.add(entry.first,d,t);std::lock_guard<std::mutex> lock(mutex_);status_.arrivals.push_back({d.key(),t});status_.newestReceptionUtc=std::max(status_.newestReceptionUtc,d.utc);dirty=true;}
   {std::lock_guard<std::mutex> lock(mutex_);auto& arrivals=status_.arrivals;arrivals.erase(std::remove_if(arrivals.begin(),arrivals.end(),[&](const Arrival& a){return t-a.observedMs>=int64_t(arrivalHighlightSeconds*1000);}),arrivals.end());}
   auto logSettings=store->getSetting("ui",Json::object());auto cornerCount=cornerFeed_.rows().size();cornerFeed_.expire(t,logSettings.value("corner_seconds",10));dirty=dirty||cornerFeed_.rows().size()!=cornerCount;auto logPath=logSettings.value("csv_path",(root_/"receptions.csv").string());

@@ -124,4 +124,12 @@ This measures heard geographic activity. Antenna pattern, transmit power, band, 
 
 ## Data and privacy
 
-The default data directory is `~/Library/Application Support/SDR++Brown DX Notebook/`. The SQLite history, CSV and tile cache stay local. Online maps contact their tile providers; callsign lookups open the selected website in your default browser. GridTracker UDP is off until enabled. There is no account, product analytics or automatic log upload.
+The default data directories are `~/Library/Application Support/SDR++Brown DX Notebook/` for Brown and `~/Library/Application Support/SDR++ DX Notebook/` for standard SDR++. The SQLite history, CSV and tile cache stay local. Online maps contact their tile providers; callsign lookups open the selected website in your default browser. GridTracker UDP is off until enabled. There is no account, product analytics or automatic log upload.
+
+## SDR++ and SDR++Brown
+
+Both hosts are supported through separate matching binaries. Use the native installer to select the detected application; each host keeps a separate profile, reception database and CSV log. Brown's integration remains native. Standard SDR++ uses standard host APIs and does not require Brown to be installed.
+
+Set the home locator in the installer, in Brown's **Source > My Grid**, or in standard SDR++'s plugin **Settings > General > Maidenhead grid**. Without a valid home locator, the standard build leaves the home marker, distances and bearings unknown while station-grid mapping and decoding continue. Four- and six-character locators work in both; the standard build also accepts eight.
+
+Standard SDR++ timestamps live capture against the Mac's UTC clock. Keep the computer clock synchronized. Its file source lacks Brown's recorded-stream timestamp API, so replay timestamps describe when the samples were processed rather than their original recording date.

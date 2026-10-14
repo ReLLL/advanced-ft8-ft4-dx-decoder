@@ -28,6 +28,11 @@ int main(){
  CHECK(std::abs(dx::distanceBearing(rk9ue,ankara).first-siberia.first)<1e-6);
  CHECK(dx::distanceBearing(ankara,ankara).first==0);CHECK(std::abs(dx::distanceBearing({0,179},{0,-179}).first-222.39016)<.01);
  auto home=*dx::gridPoint("KM69"),boston=*dx::gridPoint("FN42");auto distance=dx::distanceBearing(home,boston);CHECK(distance.first>7500&&distance.first<9000);CHECK(std::isfinite(distance.second));
+ {
+  dx::Store unknownHome(":memory:");dx::Decode heard;heard.utc=1800000000;heard.dial=7074000;heard.mode="FT8";heard.message="CQ K1ABC FN42";heard.km=1234;heard.bearing=90;
+  CHECK(unknownHome.insert(heard,{NAN,NAN}));CHECK(heard.position&&!heard.km&&!heard.bearing&&!heard.distanceRecord);CHECK(unknownHome.stats(heard.utc).farthest==0);
+  unknownHome.rebaseDistances(home);CHECK(unknownHome.rows(dx::Query{}).front().decode.km);unknownHome.rebaseDistances({NAN,NAN});CHECK(!unknownHome.rows(dx::Query{}).front().decode.km);CHECK(unknownHome.stats(heard.utc).farthest==0);
+ }
  auto dateline=dx::greatCircle({40,170},{40,-170});CHECK(dateline.size()==129);for(auto p:dateline)CHECK(std::isfinite(p.lat)&&std::isfinite(p.lon));
  for(auto pair:std::vector<std::pair<dx::Point,dx::Point>>{{{90,0},{-90,0}},{{0,0},{0,180}},{{42,1},{42,1}}})for(auto p:dx::greatCircle(pair.first,pair.second))CHECK(std::isfinite(p.lat)&&std::isfinite(p.lon));
  auto m=dx::meaning("K1ABC TA1XYZ RR73");CHECK(m.transmitter=="TA1XYZ"&&m.called=="K1ABC"&&m.grid.empty()&&m.type=="RR73");CHECK(dx::meaning("CQ DX K1ABC FN42").transmitter=="K1ABC");CHECK(dx::meaning("HELLO WORLD").transmitter.empty());CHECK(dx::meaning("K1ABC <1:123> -10").transmitter=="<1:123>");

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.25
+
+- Add a native macOS installer for both SDR++ and SDR++Brown, with automatic host selection, optional home locator, automatic first-run preparation, safe host quit, custom-profile selection, backup access and Open host. End users do not need Python, Terminal, Homebrew, developer tools or administrator access.
+- Verify payload hashes and the selected host core before writing. Stage replacements, preserve settings/logs, keep timestamped backups and recover from handled write failures. Refuse configuration changes or a restarted host during installation.
+- Include the installer automatically in release ZIP and DMG packaging, with Developer ID/notarization options and verification gates. Include installer source in the corresponding-source archive.
+- Add a separate standard SDR++ build using standard APIs and ImGui hooks, UTC capture timing, independent location settings, bundled country-prefix data and separate reception storage. Keep Brown's native integration intact.
+- Verify live FT8 reception in standard SDR++ 1.2.0 (May 28, 2024 build), including countries, distances, map, tables and notifications. Add installer safety checks for both hosts. Document Brown's Source > My Grid and standard SDR++'s plugin location setting.
+
 ## 1.0.24
 
 - Show each new reception in the waterfall corner, including repeats. Expire notifications after an adjustable 10 seconds by default while preserving history and the farthest row. Keep the two-second arrival glow. No four-row cap.

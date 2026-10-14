@@ -1,14 +1,15 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "plugin.h"
+#include <core.h>
 #include <cmath>
 #include <map>
 #include <set>
 #include <ctime>
 #include <utils/opengl_include_code.h>
 void DXNotebook::map(const std::vector<dx::Row>& rows){
- const bool online=mapView_.base!=0;const double maxZoom=online?65536.:32.;
- bool changed=false;if(ImGui::SmallButton("+")){mapView_.zoom=std::min(maxZoom,mapView_.zoom*1.35);changed=true;}ImGui::SameLine();if(ImGui::SmallButton("-")){mapView_.zoom=std::max(1.,mapView_.zoom/1.35);changed=true;}ImGui::SameLine();if(ImGui::SmallButton("World")){mapView_.zoom=1;mapView_.lon=mapView_.lat=0;changed=true;}ImGui::SameLine();if(ImGui::SmallButton("Home")){mapView_.lon=home_.lon;mapView_.lat=home_.lat;mapView_.zoom=4;changed=true;}ImGui::SameLine();
- if(ImGui::SmallButton("Fit")){std::vector<dx::Point> points;points.push_back(home_);for(auto& r:rows)if(r.decode.position)points.push_back(*r.decode.position);double left=180,right=-180,top=-90,bottom=90;for(auto p:points){double lon=home_.lon+std::remainder(p.lon-home_.lon,360.);left=std::min(left,lon);right=std::max(right,lon);bottom=std::min(bottom,p.lat);top=std::max(top,p.lat);}mapView_.lon=std::remainder((left+right)/2,360.);mapView_.lat=(top+bottom)/2;mapView_.zoom=std::clamp(std::min(320./std::max(10.,right-left),150./std::max(10.,top-bottom)),1.,32.);changed=true;}
+ const bool online=mapView_.base!=0,homeKnown=std::isfinite(home_.lat)&&std::isfinite(home_.lon);const double maxZoom=online?65536.:32.;
+ bool changed=false;if(ImGui::SmallButton("+")){mapView_.zoom=std::min(maxZoom,mapView_.zoom*1.35);changed=true;}ImGui::SameLine();if(ImGui::SmallButton("-")){mapView_.zoom=std::max(1.,mapView_.zoom/1.35);changed=true;}ImGui::SameLine();if(ImGui::SmallButton("World")){mapView_.zoom=1;mapView_.lon=mapView_.lat=0;changed=true;}ImGui::SameLine();ImGui::BeginDisabled(!homeKnown);if(ImGui::SmallButton("Home")){mapView_.lon=home_.lon;mapView_.lat=home_.lat;mapView_.zoom=4;changed=true;}ImGui::EndDisabled();ImGui::SameLine();
+ if(ImGui::SmallButton("Fit")){std::vector<dx::Point> points;if(homeKnown)points.push_back(home_);for(auto& r:rows)if(r.decode.position)points.push_back(*r.decode.position);double left=180,right=-180,top=-90,bottom=90,anchor=homeKnown?home_.lon:points.empty()?0:points.front().lon;for(auto p:points){double lon=anchor+std::remainder(p.lon-anchor,360.);left=std::min(left,lon);right=std::max(right,lon);bottom=std::min(bottom,p.lat);top=std::max(top,p.lat);}if(!points.empty()){mapView_.lon=std::remainder((left+right)/2,360.);mapView_.lat=(top+bottom)/2;mapView_.zoom=std::clamp(std::min(320./std::max(10.,right-left),150./std::max(10.,top-bottom)),1.,32.);changed=true;}}
  auto origin=ImGui::GetCursorScreenPos(),size=ImGui::GetContentRegionAvail();size.x=std::max(size.x,10.f);size.y=std::max(size.y,10.f);ImVec2 end{origin.x+size.x,origin.y+size.y};
  ImGui::InvisibleButton("##world",size,ImGuiButtonFlags_MouseButtonLeft|ImGuiButtonFlags_MouseButtonRight);bool hovered=ImGui::IsItemHovered();auto& io=ImGui::GetIO();
  double scale=std::min(size.x/360.,size.y/(online?360.:180.))*mapView_.zoom;
@@ -67,7 +68,7 @@ void DXNotebook::map(const std::vector<dx::Row>& rows){
   }
   draw->Flags=fillFlags;
  }
- if(selected_&&selected_->position)line(dx::greatCircle(home_,*selected_->position),IM_COL32(239,191,109,255),2);
+ if(homeKnown&&selected_&&selected_->position)line(dx::greatCircle(home_,*selected_->position),IM_COL32(239,191,109,255),2);
  for(size_t index=0;index<snapshot->paths.size();index++){
   const auto& path=snapshot->paths[index];if(path.points.size()<2)continue;
   std::vector<ImVec2> arc;double longitude=path.points.front().lon,previous=longitude;auto first=project(path.points.front());
@@ -96,7 +97,7 @@ void DXNotebook::map(const std::vector<dx::Row>& rows){
  for(auto& [_,c]:clusters){bool selected=selected_&&selected_->identity.transmitter==c.d->identity.transmitter,newest=snapshot->newestReceptionUtc>0&&c.d->utc==snapshot->newestReceptionUtc;if(newest){draw->AddCircleFilled(c.p,10,IM_COL32(178,235,158,70));draw->AddCircle(c.p,8,IM_COL32(185,239,167,245),16,1.5f);}draw->AddCircleFilled(c.p,selected?7.5f:5.5f,IM_COL32(18,41,44,220));draw->AddCircleFilled(c.p,selected?6:4,selected?IM_COL32(242,196,114,255):newest?IM_COL32(178,235,158,255):IM_COL32(98,207,178,255));if(mapView_.counts&&c.count>1){auto number=std::to_string(c.count);draw->AddText({c.p.x+5,c.p.y-8},IM_COL32(196,221,216,255),number.c_str());}
   double distance=std::hypot(io.MousePos.x-c.p.x,io.MousePos.y-c.p.y);if(hovered&&distance<hoverDistance){hoveredStation=&c;hoverDistance=distance;}
  }
- auto home=project(home_);bool homeHovered=hovered&&std::hypot(io.MousePos.x-home.x,io.MousePos.y-home.y)<12;
+ auto home=homeKnown?project(home_):ImVec2{};bool homeHovered=homeKnown&&hovered&&std::hypot(io.MousePos.x-home.x,io.MousePos.y-home.y)<12;
  if(hoveredStation&&!homeHovered&&ImGui::IsMouseReleased(1)){mapContext_=*hoveredStation->d;ImGui::OpenPopup("map_station_actions");}
  if(ImGui::BeginPopup("map_station_actions")){if(mapContext_)stationMenu(*mapContext_,rows);ImGui::EndPopup();}
  if(hoveredStation&&!homeHovered&&!ImGui::IsPopupOpen("map_station_actions")){const auto& d=*hoveredStation->d;engine_->hover(d);ImGui::BeginTooltip();ImGui::PushTextWrapPos(420);
@@ -107,8 +108,14 @@ void DXNotebook::map(const std::vector<dx::Row>& rows){
   if(ready)for(const auto& message:snapshot->hoverMessages)messageRow(message);else messageRow(d);
   if(hoveredStation->count>1)ImGui::TextDisabled("Latest reception in this marker (%d entries)",hoveredStation->count);ImGui::EndTooltip();if(ImGui::IsMouseClicked(0)){selected_=d;engine_->select(d);save();}
  }
- if(homeIcon_)draw->AddImage(reinterpret_cast<ImTextureID>(uintptr_t(homeIcon_)),{home.x-11,home.y-11},{home.x+11,home.y+11});else draw->AddCircle(home,5,IM_COL32(242,207,128,255),12,2);
- if(homeHovered){core::configManager.acquire();auto grid=core::configManager.conf.value("operatorLocation","");core::configManager.release();ImGui::SetTooltip("Home: %s | %.4f, %.4f\nOrigin for great-circle distances and bearings",grid.c_str(),home_.lat,home_.lon);}else if(!hoveredStation){const auto& tooltip=hoveredPath.empty()?hoveredCountry:hoveredPath;if(!tooltip.empty())ImGui::SetTooltip("%s",tooltip.c_str());}
+ if(homeKnown){if(homeIcon_)draw->AddImage(reinterpret_cast<ImTextureID>(uintptr_t(homeIcon_)),{home.x-11,home.y-11},{home.x+11,home.y+11});else draw->AddCircle(home,5,IM_COL32(242,207,128,255),12,2);}
+ if(homeHovered){
+#if DX_HOST_BROWN
+ core::configManager.acquire();auto grid=core::configManager.conf.value("operatorLocation","");core::configManager.release();
+#else
+ auto grid=receiverGrid_;
+#endif
+ ImGui::SetTooltip("Home: %s | %.4f, %.4f\nOrigin for great-circle distances and bearings",grid.c_str(),home_.lat,home_.lon);}else if(!hoveredStation){const auto& tooltip=hoveredPath.empty()?hoveredCountry:hoveredPath;if(!tooltip.empty())ImGui::SetTooltip("%s",tooltip.c_str());}
  const char* credit=mapView_.base==2?"Sources: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, OpenStreetMap contributors, and the GIS User Community":online?"OpenStreetMap contributors | HOT style | OSM France":"Natural Earth | approximate grid centers";auto creditSize=ImGui::GetFont()->CalcTextSizeA(fontSize,FLT_MAX,size.x-14,credit);ImVec2 at{origin.x+7,end.y-creditSize.y-5};draw->AddRectFilled({at.x-3,at.y-2},{at.x+creditSize.x+3,end.y-3},IM_COL32(17,30,37,240));draw->AddText(ImGui::GetFont(),fontSize,at,IM_COL32(183,199,200,255),credit,nullptr,size.x-14);
  if(hovered&&io.MousePos.y>=at.y-2&&io.MousePos.x<=at.x+creditSize.x+3&&ImGui::IsMouseClicked(0))ImGui::OpenPopup("Map credits");
  if(ImGui::BeginPopup("Map credits")){popup_=true;if(mapView_.base==2&&ImGui::MenuItem("Esri map sources"))dx::openMapCredit(3);if(ImGui::MenuItem("OpenStreetMap data and license"))dx::openMapCredit(0);if(mapView_.base==1){if(ImGui::MenuItem("Humanitarian map style"))dx::openMapCredit(1);if(ImGui::MenuItem("OpenStreetMap France"))dx::openMapCredit(2);}ImGui::EndPopup();}

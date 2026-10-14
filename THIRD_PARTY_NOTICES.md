@@ -21,3 +21,11 @@ The host provides SDR++ core, Volk and FFTW runtime libraries. SQLite, curl, App
 ## GridTracker compatibility
 
 The receive-only UDP encoder follows [WSJT-X NetworkMessage schema 2](https://github.com/WSJTX/wsjtx/blob/master/Network/NetworkMessage.hpp). GridTracker and WSJT-X are independent projects; this plugin is not affiliated with them.
+
+## Amateur Radio Country Files
+
+The standard SDR++ build bundles CTY.DAT country-prefix data maintained by Jim Reisert, AD1C. The snapshot matches the data used by the pinned Brown host. Format and source: https://www.country-files.com/cty-dat-format/ . Redistribution permission is reproduced in `resources/cty-LICENSE.txt`. Country identity is inferred from prefixes and exact-call exceptions; these records do not locate an individual transmitter.
+
+## Standard SDR++ host headers
+
+The standard build uses headers from SDR++ commit `762444d3406d68fbc9d4dff8cc237d382793a6e3` under GPL-3.0. The required source and upstream license are included in the corresponding-source archive. It links to the user's separately installed standard SDR++ runtime, not Brown's host libraries.

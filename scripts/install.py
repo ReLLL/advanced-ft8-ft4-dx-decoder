@@ -1,4 +1,4 @@
-"""Install Advanced FT8/FT4 DX Decoder outside Brown's signed app, with reversible backups."""
+"""Install Advanced FT8/FT4 DX Decoder outside the host's signed app, with reversible backups."""
 import argparse
 import datetime
 import hashlib
@@ -15,7 +15,7 @@ INSTANCE_NAME = "Advanced FT8/FT4 DX Decoder"
 MODULE_NAME = "advanced_ft8_ft4_dx_decoder"
 
 
-def install(build, profile):
+def install(build, profile, host="brown"):
     config = profile / "config.json"
     data = json.loads(config.read_text())
     instances = data.setdefault("moduleInstances", {})
@@ -28,13 +28,19 @@ def install(build, profile):
     target = profile / "plugins/dx-notebook"
     sources = {"dx_notebook.dylib": build / "dx_notebook.dylib",
                "dx_decoder": build / "dx_decoder", "world.geojson": ROOT / "resources/world.geojson"}
+    if host == "sdrpp":
+        manifest = json.loads((build / "dx_notebook.host.json").read_text())
+        if manifest.get("host") != "sdrpp":
+            raise ValueError("Standard SDR++ requires its matching plugin build")
+        sources["cty.dat"] = ROOT / "resources/cty.dat"
     if not all(p.is_file() for p in sources.values()):
         raise ValueError("Build or map resource missing")
     modules = data.setdefault("modules", [])
     plugin = str(target / "dx_notebook.dylib")
     if plugin not in modules:
         modules.append(plugin)
-    instances[INSTANCE_NAME] = {"module": MODULE_NAME, "enabled": (existing or legacy or {}).get("enabled", True)}
+    instances[INSTANCE_NAME] = dict(existing or legacy or {})
+    instances[INSTANCE_NAME].update({"module": MODULE_NAME, "enabled": (existing or legacy or {}).get("enabled", True)})
     instances.pop("DX Notebook", None)
     menu = data.setdefault("menuElements", [])
     for item in menu:
@@ -67,7 +73,7 @@ def install(build, profile):
         staged_config = stage / "config.json"
         staged_config.write_text(json.dumps(data, indent=4) + "\n")
         staged_config.chmod(config.stat().st_mode & 0o777)
-        for name in FILES:
+        for name in sources:
             os.replace(stage / name, target / name)
         os.replace(staged_config, config)
     return backup
@@ -76,15 +82,18 @@ def install(build, profile):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", type=Path, default=ROOT / "build-native")
-    parser.add_argument("--profile", type=Path, default=Path.home() / "Library/Application Support/sdrpp-brown")
+    parser.add_argument("--host", choices=("brown", "sdrpp"), default="brown")
+    parser.add_argument("--profile", type=Path)
     args = parser.parse_args()
-    probe = subprocess.run(["pgrep", "-f", r"SDR\+\+Brown.app/Contents/MacOS/sdrpp"], capture_output=True)
+    profile = args.profile or Path.home() / "Library/Application Support" / ("sdrpp-brown" if args.host == "brown" else "sdrpp")
+    pattern = r"SDR\+\+Brown.app/Contents/MacOS/sdrpp" if args.host == "brown" else r"SDR\+\+.app/Contents/MacOS/sdrpp"
+    probe = subprocess.run(["pgrep", "-f", pattern], capture_output=True)
     if probe.returncode == 0:
-        parser.error("Quit Brown before installation; it saves settings on exit")
+        parser.error("Quit the selected radio application before installation; it saves settings on exit")
     if probe.returncode != 1:
-        parser.error("Unable to verify Brown process state")
+        parser.error("Unable to verify the radio application's process state")
     print("Installed candidate. Legacy decoding and bridge preserved.")
-    print("Backup:", install(args.build.resolve(), args.profile.resolve()))
+    print("Backup:", install(args.build.resolve(), profile.resolve(), args.host))
 
 
 if __name__ == "__main__":
