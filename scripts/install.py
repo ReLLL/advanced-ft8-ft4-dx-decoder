@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from mode_payload import mode_files, NATIVE_BINARIES
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ("dx_notebook.dylib", "dx_decoder", "world.geojson")
@@ -28,6 +29,7 @@ def install(build, profile, host="brown"):
     target = profile / "plugins/dx-notebook"
     sources = {"dx_notebook.dylib": build / "dx_notebook.dylib",
                "dx_decoder": build / "dx_decoder", "world.geojson": ROOT / "resources/world.geojson"}
+    sources.update({name: build / name for name in mode_files(build)})
     if host == "sdrpp":
         manifest = json.loads((build / "dx_notebook.host.json").read_text())
         if manifest.get("host") != "sdrpp":
@@ -68,7 +70,7 @@ def install(build, profile, host="brown"):
         for name, source in sources.items():
             shutil.copy2(source, stage / name)
             assert hashlib.sha256(source.read_bytes()).digest() == hashlib.sha256((stage / name).read_bytes()).digest()
-            if name == "dx_decoder":
+            if name == "dx_decoder" or name in NATIVE_BINARIES:
                 (stage / name).chmod(0o755)
         staged_config = stage / "config.json"
         staged_config.write_text(json.dumps(data, indent=4) + "\n")

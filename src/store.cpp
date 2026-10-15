@@ -98,7 +98,7 @@ int64_t Store::moderate(const IgnoreTarget& target,bool deleteRecords,bool ignor
 bool Store::insert(Decode& d,Point home,const std::function<std::pair<std::string,std::string>(const std::string&)>& country){
  // An old legacy file must never repopulate history that retention expired.
  if(d.source=="legacy"&&d.utc<=getSetting("retention_floor",int64_t(0)).get<int64_t>())return false;
- if(ignoredMessage(d.message))return false;d.identity=meaning(d.message);auto& i=d.identity;if(ignored(i.transmitter))return false;
+ if(ignoredMessage(d.message))return false;d.identity=receptionMeaning(d.mode,d.message);auto& i=d.identity;if(ignored(i.transmitter))return false;
  auto resolve=[&](std::string& value){std::smatch match;static const std::regex hash("<([0-2]):([0-9]{1,7})>");if(!std::regex_match(value,match,hash))return;int bits=match[1]=="0"?10:match[1]=="1"?12:22;uint32_t wanted=uint32_t(std::stoul(match[2]));
   auto s=prepare(db_,"SELECT DISTINCT call FROM decodes WHERE utc BETWEEN ? AND ? AND call!='' AND call NOT LIKE '<%'");sqlite3_bind_int64(s.get(),1,d.utc-hashMatchWindowSeconds);sqlite3_bind_int64(s.get(),2,d.utc);std::string candidate;bool ambiguous=false;
   while(step(db_,s.get())==SQLITE_ROW){auto call=column(s.get(),0);if(callHash(call,bits)==wanted){if(!candidate.empty()&&candidate!=call)ambiguous=true;candidate=call;}}
@@ -158,7 +158,8 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
  if(f.cqOnly)where+=" AND type='CQ'";if(f.hasGrid)where+=" AND grid!=''";if(f.hasTarget)where+=" AND called NOT IN ('','CQ','QRZ','DE')";if(f.first)where+=" AND json_extract(payload,'$.first_call')=1";
  if(f.messageKind==MessageKind::GeneralCall)where+=" AND called IN ('CQ','QRZ')";
  if(f.messageKind==MessageKind::Exchange)where+=" AND call!='' AND called NOT IN ('','CQ','QRZ','DE')";
- if(f.messageKind==MessageKind::Other)where+=" AND called NOT IN ('CQ','QRZ') AND (call='' OR called IN ('','DE'))";
+ if(f.messageKind==MessageKind::Other)where+=" AND type!='Beacon' AND called NOT IN ('CQ','QRZ') AND (call='' OR called IN ('','DE'))";
+ if(f.messageKind==MessageKind::Beacon)where+=" AND type='Beacon'";
  where+=" AND snr>="+std::to_string(f.minSnr);
  if(f.maxDt<30)where+=" AND abs(dt)<="+std::to_string(f.maxDt);
  if(f.minKm>0||f.maxKm<40080)where+=" AND km BETWEEN "+std::to_string(f.minKm)+" AND "+std::to_string(f.maxKm);

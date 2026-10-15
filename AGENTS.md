@@ -8,6 +8,13 @@
 - Stop test writers before cleanup, verify the test records are gone from all affected stores, and restore the user's normal receiver settings. Rebuild saved summaries and vacuum databases after deletion while preserving reception IDs.
 - Keep parent electro changes outside plugin commits and pushes, following the user's explicit repository scope.
 
+## New-mode development
+
+- Keep the published FT8/FT4 baseline intact while adding WSPR, FST4/FST4W and Q65. New decoders remain unavailable in the normal UI until capture, parsing, storage, failure recovery, timing and both-host tests pass. Prototype targets stay off by default and out of installers.
+- Marker shape encodes mode; SNR remains color. Preserve existing FT8/FT4 circles, selection outlines and arrival halos. Show the shape legend only when additional modes are present. Beacon messages have no QSO target; never invent a communication arc.
+- Do not reuse the FT8/FT4 helper queue for potentially long-running new decoders. Bound separate workers, captured audio, pending jobs and disk use. Retuning or stopping invalidates partial captures and averaging context. Keep test audio and reference-decoder logs in owned temporary folders.
+- Preserve existing SQLite payloads and reception CSV compatibility. Transmitter power is distinct from received SNR. Public binaries must include compatible runtimes; the local Fortran prototype alone does not prove the existing macOS 15 support floor.
+
 ## Date and time
 
 - Display dates and interpret user-entered date filters in the computer's time zone. Use the shared date formatter and parser; include the UTC offset in displayed timestamps.

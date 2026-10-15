@@ -85,6 +85,14 @@ Meaning meaning(const std::string& message){
   else if(std::regex_match(last,std::regex("[+-][0-9]{2}")))m.type="Report";
  }return m;
 }
+Meaning receptionMeaning(const std::string& mode,const std::string& message){
+ if(mode!="WSPR"&&mode!="FST4W")return meaning(message);
+ Meaning result;result.type="Beacon";std::istringstream input(upper(message));std::string call,grid,power,extra;input>>call>>grid>>power;
+ if(call.empty()||call.size()>24)return result;
+ if(std::regex_match(call,std::regex("<[A-Z0-9/]+>"))||(std::regex_match(call,std::regex("[A-Z0-9/]+"))&&call.find_first_of("0123456789")!=std::string::npos&&call.find_first_of("ABCDEFGHIJKLMNOPQRSTUVWXYZ")!=std::string::npos))result.transmitter=call;
+ if(gridPoint(grid))result.grid=grid;
+ return result;
+}
 uint32_t callHash(const std::string& input,int bits){
  // MSHV / WSJT-X 77-bit message callsign hash (upstream PackUnpackMsg77).
  if(bits!=10&&bits!=12&&bits!=22)return 0;std::string call=upper(input),alphabet=" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/";call.resize(11,' ');uint64_t value=0;
@@ -92,6 +100,7 @@ uint32_t callHash(const std::string& input,int bits){
 }
 std::string targetCall(const Meaning& identity){return identity.called=="CQ"||identity.called=="QRZ"||identity.called=="DE"?"":identity.called;}
 MessageKind messageKind(const Meaning& identity){
+ if(identity.type=="Beacon")return MessageKind::Beacon;
  if(identity.called=="CQ"||identity.called=="QRZ")return MessageKind::GeneralCall;
  if(!identity.transmitter.empty()&&!identity.called.empty()&&identity.called!="DE")return MessageKind::Exchange;
  return MessageKind::Other;
@@ -119,13 +128,29 @@ const char* distanceUnit(bool miles){return miles?"mi":"km";}
 std::string distanceSummary(double km,bool miles){return std::to_string(int(std::round(distanceDisplay(km,miles))))+" "+distanceUnit(miles);}
 std::string latestHeardSummary(const Decode& d,bool miles){return (d.country.empty()?"Unknown":d.country)+std::string(" | ")+(d.km?distanceSummary(*d.km,miles)+(d.gridSource=="cached"?" *":""):"distance unknown")+" | "+(d.snr>=0?"+":"")+std::to_string(d.snr)+" dB SNR";}
 std::string bandName(int64_t f){
- for(auto [low,high,name]:std::vector<std::tuple<int64_t,int64_t,std::string>>{{1800000,2000000,"160m"},{3500000,4000000,"80m"},{5000000,5500000,"60m"},{7000000,7300000,"40m"},{10000000,10200000,"30m"},{14000000,14400000,"20m"},{18000000,18200000,"17m"},{21000000,21500000,"15m"},{24800000,25000000,"12m"},{28000000,30000000,"10m"},{50000000,54000000,"6m"},{144000000,148000000,"2m"}})if(f>=low&&f<=high)return name;
+ for(auto [low,high,name]:std::vector<std::tuple<int64_t,int64_t,std::string>>{{135700,137800,"2200m"},{472000,479000,"630m"},{1800000,2000000,"160m"},{3500000,4000000,"80m"},{5000000,5500000,"60m"},{7000000,7300000,"40m"},{10000000,10200000,"30m"},{14000000,14400000,"20m"},{18000000,18200000,"17m"},{21000000,21500000,"15m"},{24800000,25000000,"12m"},{28000000,30000000,"10m"},{50000000,54000000,"6m"},{144000000,148000000,"2m"}})if(f>=low&&f<=high)return name;
  return "Other";
 }
 std::string countryName(std::string name){return name=="Fed. Rep. of Germany"?"Germany":name;}
 bool Stats::isNewestCountry(const std::string& country)const{return !country.empty()&&std::find(newestCountries.begin(),newestCountries.end(),country)!=newestCountries.end();}
-Json Decode::json()const{return {{"timestamp",utc},{"slot_ms",slotMs},{"frequency",dial},{"mode",mode},{"audio_hz",audio},{"snr",snr},{"dt",dt?Json(*dt):Json(nullptr)},{"message",message},{"raw",raw},{"source",source},{"country",countryName(country)},{"continent",continent},{"transmitter",identity.transmitter},{"called",identity.called},{"grid",identity.grid},{"type",identity.type},{"identity_source",identitySource},{"grid_source",gridSource},{"grid_utc",gridUtc},{"km",km?Json(*km):Json(nullptr)},{"bearing",bearing?Json(*bearing):Json(nullptr)},{"first_call",firstCall},{"first_grid",firstGrid},{"first_country",firstCountry},{"distance_record",distanceRecord}};}
-Decode Decode::fromJson(const Json& j){Decode d;d.utc=j.at("timestamp");d.slotMs=j.value("slot_ms",d.utc*1000);d.dial=j.at("frequency");d.mode=j.at("mode");d.snr=j.at("snr");d.audio=j.at("audio_hz");d.message=j.at("message");d.raw=j.value("raw","");d.source=j.value("source","legacy");if(j.contains("dt")&&!j["dt"].is_null()&&d.source!="legacy")d.dt=j["dt"].get<double>();d.identity=meaning(d.message);d.identitySource=j.value("identity_source","literal");if(j.contains("transmitter"))d.identity.transmitter=j["transmitter"];if(j.contains("called"))d.identity.called=j["called"];d.country=countryName(j.value("country",""));d.continent=j.value("continent","");d.gridSource=j.value("grid_source","");d.gridUtc=j.value("grid_utc",int64_t(0));if(j.contains("grid"))d.identity.grid=j["grid"];d.position=gridPoint(d.identity.grid);if(j.contains("km")&&!j["km"].is_null())d.km=j["km"].get<double>();if(j.contains("bearing")&&!j["bearing"].is_null())d.bearing=j["bearing"].get<double>();d.firstCall=j.value("first_call",false);d.firstGrid=j.value("first_grid",false);d.firstCountry=j.value("first_country",false);d.distanceRecord=j.value("distance_record",false);return d;}
+Json Decode::json()const{
+ Json j={{"timestamp",utc},{"slot_ms",slotMs},{"frequency",dial},{"mode",mode},{"audio_hz",audio},{"snr",snr},{"dt",dt?Json(*dt):Json(nullptr)},{"message",message},{"raw",raw},{"source",source},{"country",countryName(country)},{"continent",continent},{"transmitter",identity.transmitter},{"called",identity.called},{"grid",identity.grid},{"type",identity.type},{"identity_source",identitySource},{"grid_source",gridSource},{"grid_utc",gridUtc},{"km",km?Json(*km):Json(nullptr)},{"bearing",bearing?Json(*bearing):Json(nullptr)},{"first_call",firstCall},{"first_grid",firstGrid},{"first_country",firstCountry},{"distance_record",distanceRecord}};
+ if(periodMs)j["period_ms"]=periodMs;if(submode>=0)j["submode"]=submode;if(averagedIntervals>1)j["averaged_intervals"]=averagedIntervals;if(txPowerDbm)j["tx_power_dbm"]=*txPowerDbm;return j;
+}
+Decode Decode::fromJson(const Json& j){
+ Decode d;d.utc=j.at("timestamp");d.slotMs=j.value("slot_ms",d.utc*1000);d.dial=j.at("frequency");d.mode=j.at("mode");d.snr=j.at("snr");d.audio=j.at("audio_hz");d.message=j.at("message");d.raw=j.value("raw","");d.source=j.value("source","legacy");
+ if(j.contains("dt")&&!j["dt"].is_null()&&d.source!="legacy")d.dt=j["dt"].get<double>();d.identity=receptionMeaning(d.mode,d.message);d.identitySource=j.value("identity_source","literal");
+ if(j.contains("transmitter"))d.identity.transmitter=j["transmitter"];if(j.contains("called"))d.identity.called=j["called"];d.country=countryName(j.value("country",""));d.continent=j.value("continent","");d.gridSource=j.value("grid_source","");d.gridUtc=j.value("grid_utc",int64_t(0));
+ if(j.contains("grid"))d.identity.grid=j["grid"];d.position=gridPoint(d.identity.grid);if(j.contains("km")&&!j["km"].is_null())d.km=j["km"].get<double>();if(j.contains("bearing")&&!j["bearing"].is_null())d.bearing=j["bearing"].get<double>();
+ d.firstCall=j.value("first_call",false);d.firstGrid=j.value("first_grid",false);d.firstCountry=j.value("first_country",false);d.distanceRecord=j.value("distance_record",false);
+ d.periodMs=j.value("period_ms",0);d.submode=j.value("submode",-1);d.averagedIntervals=j.value("averaged_intervals",1);
+ if(d.mode=="WSPR"||d.mode=="FST4W"){
+  std::istringstream words(upper(d.message));std::string word,last;while(words>>word)last=word;
+  if(std::regex_match(last,std::regex("[0-9]{1,2}"))&&std::stoi(last)<=60)d.txPowerDbm=std::stoi(last);
+  if(!d.identity.transmitter.empty()&&d.identity.transmitter.front()=='<')d.identitySource="decoder-hash";
+ }
+ return d;
+}
 std::string Decode::key()const{return Json::array({utc,dial,mode,snr,audio,message}).dump();}
 bool IgnoreTarget::matches(const Decode& d)const{return value==upper(message?d.message:d.identity.transmitter);}
 std::optional<IgnoreTarget> ignoreTarget(const Decode& d){IgnoreTarget target{upper(d.identity.transmitter.empty()?d.message:d.identity.transmitter),d.identity.transmitter.empty()};if(target.value.empty()||target.value.find('\0')!=std::string::npos)return {};return target;}
@@ -150,7 +175,7 @@ Filter Filter::fromJson(const Json& j){Filter f;
  STR(source);STR(search);STR(call);STR(called);STR(prefix);STR(country);STR(continent);STR(grid);STR(band);STR(mode);STR(frequency);STR(text);STR(type);STR(excludeCall);STR(excludeCalled);STR(excludeCountry);STR(excludeGrid);
 #undef STR
  for(auto* pattern:{&f.country,&f.excludeCountry}){const std::string legacy="Fed. Rep. of Germany";size_t pos=0;while((pos=pattern->find(legacy,pos))!=std::string::npos){pattern->replace(pos,legacy.size(),"Germany");pos+=7;}}
- f.messageKind=MessageKind(std::clamp(j.value("messageKind",0),0,3));f.cqOnly=j.value("cqOnly",false);f.hasGrid=j.value("hasGrid",false);f.hasTarget=j.value("hasTarget",false);f.columnRanges=columnRangesFromJson(j.value("columnRanges",Json::object()));f.first=j.value("first",false);f.minKm=j.value("minKm",0.);f.maxKm=j.value("maxKm",40080.);f.minSnr=j.value("minSnr",-100.);f.maxDt=j.value("maxDt",30.);return f;
+ f.messageKind=MessageKind(std::clamp(j.value("messageKind",0),0,4));f.cqOnly=j.value("cqOnly",false);f.hasGrid=j.value("hasGrid",false);f.hasTarget=j.value("hasTarget",false);f.columnRanges=columnRangesFromJson(j.value("columnRanges",Json::object()));f.first=j.value("first",false);f.minKm=j.value("minKm",0.);f.maxKm=j.value("maxKm",40080.);f.minSnr=j.value("minSnr",-100.);f.maxDt=j.value("maxDt",30.);return f;
 }
 std::vector<Preset> presets(){std::vector<Preset> p;for(int64_t f:{1840000,3573000,5357000,7074000,10136000,14074000,18100000,21074000,24915000,28074000,50323000,144174000,222065000,432065000})p.push_back({f,"FT8"});for(int64_t f:{7047500,10140000,14080000,18104000,21140000,28180000})p.push_back({f,"FT4"});return p;}
 std::vector<Preset> eligible(double center,double width,const std::vector<Preset>& all){std::vector<Preset> p;for(auto& v:all)if(v.dial>=center-width/2&&v.dial+6000<=center+width/2)p.push_back(v);return p;}

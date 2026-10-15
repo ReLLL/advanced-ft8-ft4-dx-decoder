@@ -7,13 +7,14 @@
 namespace dx {
 class Helper {
 public:
- explicit Helper(std::filesystem::path binary):binary_(std::move(binary)){}
+ explicit Helper(std::filesystem::path binary,bool isolated=false):binary_(std::move(binary)),isolated_(isolated){}
  ~Helper(){stop();}
  Json decode(const Job& job,const std::atomic<bool>& stopping);
  void stop();pid_t pid()const{return pid_;}
 private:
  void start();void transfer(int fd,void* data,size_t size,bool writing,int64_t deadline,const std::atomic<bool>& stopping);
  std::filesystem::path binary_;pid_t pid_=-1;int input_=-1,output_=-1;
+ bool isolated_=false;std::filesystem::path work_;
 };
 int64_t monotonicMs();
 }

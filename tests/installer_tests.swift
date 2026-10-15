@@ -6,7 +6,7 @@ import Darwin
     static func check(_ value: @autoclosure () throws -> Bool, _ message: String) throws {
         guard try value() else { throw InstallError.message("Test failed: " + message) }
     }
-    static func fixture(_ root: URL, standard: Bool = false) throws -> (PluginInstaller, URL, URL) {
+    static func fixture(_ root: URL, standard: Bool = false, modes: Bool = false) throws -> (PluginInstaller, URL, URL) {
         let profile = root.appendingPathComponent("Profile with spaces and ü")
         let payload = root.appendingPathComponent("Payload")
         let host = root.appendingPathComponent("SDR++Brown.app")
@@ -21,7 +21,7 @@ import Darwin
         try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
             .write(to: host.appendingPathComponent("Contents/Info.plist"))
         var files: [String: String] = [:]
-        for name in PluginInstaller.names + (standard ? ["cty.dat"] : []) {
+        for name in PluginInstaller.names + (standard ? ["cty.dat"] : []) + (modes ? PluginInstaller.modeNames : []) {
             let data = Data(("new-" + name).utf8)
             try data.write(to: payload.appendingPathComponent(name)); files[name] = PluginInstaller.hash(data)
         }
@@ -47,6 +47,19 @@ import Darwin
         try check(failed, "expected failure")
     }
     static func main() throws {
+        for standard in [false, true] {
+            try scenario("native mode payload, runtimes and executable permissions") { root in
+                let (engine, profile, host) = try fixture(root, standard: standard, modes: true)
+                _ = try engine.install(profile: profile, host: host)
+                for name in PluginInstaller.modeNames {
+                    let target = profile.appendingPathComponent("plugins/dx-notebook/" + name)
+                    try check(Data(contentsOf: target) == Data("new-\(name)".utf8), "native payload copied exactly")
+                    if name.hasSuffix(".dylib") || name.hasPrefix("dx_") { try check((fm.attributesOfItem(atPath: target.path)[.posixPermissions] as! NSNumber).intValue == 0o755, "native code executable") }
+                }
+                try fm.removeItem(at: engine.payload.appendingPathComponent("libgfortran.5.dylib"))
+                try expectFailure { try engine.validatePayload() }
+            }
+        }
         try scenario("location grids, precision, stale and unreliable estimates") { _ in
             try check(GridLocator.coordinate(latitude: 39.93, longitude: 32.86) == "KM69KW", "Ankara six-character grid")
             try check(GridLocator.coordinate(latitude: 0, longitude: 0) == "JJ00AA", "equator and meridian")

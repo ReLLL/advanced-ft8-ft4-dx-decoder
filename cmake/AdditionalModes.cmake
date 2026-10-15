@@ -1,0 +1,58 @@
+enable_language(C)
+enable_language(Fortran)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/stage_mode_runtime.py"
+ --destination "${CMAKE_BINARY_DIR}" --cache "${CMAKE_SOURCE_DIR}/build-mode-runtime"
+ COMMAND_ERROR_IS_FATAL ANY)
+# Explicit compatible runtime libraries precede the compiler's newer implicit paths.
+set(DX_FORTRAN_RUNTIME "${CMAKE_BINARY_DIR}/libgfortran.5.dylib" "${CMAKE_BINARY_DIR}/libquadmath.0.dylib" "${CMAKE_BINARY_DIR}/libgcc_s.1.1.dylib")
+set(CMAKE_Fortran_IMPLICIT_LINK_LIBRARIES "")
+set(CMAKE_Fortran_IMPLICIT_LINK_DIRECTORIES "")
+set(WSJT_SOURCE "${CMAKE_SOURCE_DIR}/third_party/wsjtx")
+include("${WSJT_SOURCE}/mode-sources.cmake")
+set_source_files_properties(${DX_MODE_FORTRAN} src/native_modes.f90 "${WSJT_SOURCE}/lib/wsprd/osdwspr.f90"
+ PROPERTIES OBJECT_DEPENDS "${CMAKE_SOURCE_DIR}/scripts/fortran_compile.py")
+add_library(dx_native_mode_core STATIC ${DX_MODE_FORTRAN}
+ "${WSJT_SOURCE}/lib/crc10.cpp" "${WSJT_SOURCE}/lib/crc13.cpp" "${WSJT_SOURCE}/lib/crc14.cpp")
+target_include_directories(dx_native_mode_core PRIVATE "${WSJT_SOURCE}/lib" "${WSJT_SOURCE}/lib/fst4" /opt/homebrew/include)
+target_compile_options(dx_native_mode_core PRIVATE $<$<COMPILE_LANGUAGE:Fortran>:-std=legacy;-fallow-argument-mismatch;-fno-second-underscore;-ffree-line-length-none;-frecursive;-ffile-prefix-map=${CMAKE_SOURCE_DIR}=.>)
+set_target_properties(dx_native_mode_core PROPERTIES Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/native-modules")
+target_include_directories(dx_native_mode_core PUBLIC "${CMAKE_BINARY_DIR}/native-modules")
+set(Q65_CODEC "${WSJT_SOURCE}/lib/qra/q65")
+target_sources(dx_native_mode_core PRIVATE "${Q65_CODEC}/npfwht.c" "${Q65_CODEC}/pdmath.c" "${Q65_CODEC}/qracodes.c"
+ "${Q65_CODEC}/normrnd.c" "${Q65_CODEC}/qra15_65_64_irr_e23.c" "${Q65_CODEC}/q65.c" "${Q65_CODEC}/q65_subs.c")
+target_link_libraries(dx_native_mode_core PUBLIC ${FFTW} ${DX_FORTRAN_RUNTIME})
+add_library(dx_native_mode_adapter STATIC src/native_modes.f90)
+set_property(TARGET dx_native_mode_core dx_native_mode_adapter PROPERTY Fortran_COMPILER_LAUNCHER "${Python3_EXECUTABLE};${CMAKE_SOURCE_DIR}/scripts/fortran_compile.py")
+target_link_libraries(dx_native_mode_adapter PUBLIC dx_native_mode_core)
+target_compile_options(dx_native_mode_adapter PRIVATE -ffree-line-length-none "-ffile-prefix-map=${CMAKE_SOURCE_DIR}=.")
+add_executable(dx_modes_decoder src/mode_helper.cpp)
+target_link_libraries(dx_modes_decoder PRIVATE dx_native_mode_adapter dx_core)
+set_target_properties(dx_modes_decoder PROPERTIES BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@loader_path;${HOST_APP}/Contents/Frameworks")
+add_custom_command(TARGET dx_modes_decoder POST_BUILD COMMAND install_name_tool -change
+ /opt/homebrew/opt/fftw/lib/libfftw3f.3.dylib @rpath/libfftw3f.3.dylib $<TARGET_FILE:dx_modes_decoder>)
+set(WSPR_SOURCE "${WSJT_SOURCE}/lib/wsprd")
+if(NOT TARGET dx_wspr_support)
+ add_library(dx_wspr_support STATIC "${WSPR_SOURCE}/wsprsim_utils.c" "${WSPR_SOURCE}/wsprd_utils.c" "${WSPR_SOURCE}/tab.c"
+  "${WSPR_SOURCE}/fano.c" "${WSPR_SOURCE}/jelinek.c" "${WSPR_SOURCE}/nhash.c")
+ target_include_directories(dx_wspr_support PUBLIC "${WSPR_SOURCE}" /opt/homebrew/include)
+endif()
+add_executable(dx_wspr_decoder "${WSPR_SOURCE}/wsprd.c" "${WSPR_SOURCE}/osdwspr.f90" "${WSJT_SOURCE}/lib/indexx.f90")
+set_property(TARGET dx_wspr_decoder PROPERTY Fortran_COMPILER_LAUNCHER "${Python3_EXECUTABLE};${CMAKE_SOURCE_DIR}/scripts/fortran_compile.py")
+target_link_libraries(dx_wspr_decoder PRIVATE dx_wspr_support ${FFTW} ${DX_FORTRAN_RUNTIME})
+set_target_properties(dx_wspr_decoder PROPERTIES LINKER_LANGUAGE CXX BUILD_WITH_INSTALL_RPATH TRUE INSTALL_RPATH "@loader_path;${HOST_APP}/Contents/Frameworks")
+add_custom_command(TARGET dx_wspr_decoder POST_BUILD COMMAND install_name_tool -change
+ /opt/homebrew/opt/fftw/lib/libfftw3f.3.dylib @rpath/libfftw3f.3.dylib $<TARGET_FILE:dx_wspr_decoder>)
+add_executable(dx_native_reference tests/native_reference.cpp tests/native_fixture.f90)
+target_link_libraries(dx_native_reference PRIVATE dx_native_mode_adapter)
+set_target_properties(dx_native_reference PROPERTIES BUILD_RPATH "@loader_path;${HOST_APP}/Contents/Frameworks")
+add_custom_command(TARGET dx_native_reference POST_BUILD COMMAND install_name_tool -change
+ /opt/homebrew/opt/fftw/lib/libfftw3f.3.dylib @rpath/libfftw3f.3.dylib $<TARGET_FILE:dx_native_reference>)
+add_test(NAME dx_native_modes COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/test_native_modes.py" $<TARGET_FILE:dx_modes_decoder> $<TARGET_FILE:dx_native_reference>)
+add_test(NAME dx_mode_noise COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/test_mode_noise.py" $<TARGET_FILE:dx_modes_decoder>)
+add_executable(dx_mode_pipeline tests/mode_pipeline.cpp)
+target_link_libraries(dx_mode_pipeline PRIVATE dx_core)
+if(NOT TARGET dx_wspr_simulator)
+ add_executable(dx_wspr_simulator "${WSPR_SOURCE}/wsprsim.c")
+ target_link_libraries(dx_wspr_simulator PRIVATE dx_wspr_support)
+endif()
+add_test(NAME dx_mode_pipeline COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/test_mode_pipeline.py" $<TARGET_FILE:dx_mode_pipeline> $<TARGET_FILE:dx_decoder> $<TARGET_FILE:dx_native_reference> $<TARGET_FILE:dx_wspr_simulator>)

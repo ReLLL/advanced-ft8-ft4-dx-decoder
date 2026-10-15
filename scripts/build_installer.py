@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import re
+from mode_payload import mode_files, NATIVE_BINARIES
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_NAME = "Install Advanced FT8-FT4 DX Decoder.app"
@@ -27,17 +28,18 @@ def add_payload(package, contents, folder, binary_folder, host_app, version):
     payload.mkdir(parents=True)
     sources = {"dx_notebook.dylib": package / binary_folder / "dx_notebook.dylib",
                "dx_decoder": package / binary_folder / "dx_decoder", "world.geojson": package / "resources/world.geojson"}
+    sources.update({name: package / binary_folder / name for name in mode_files(package / binary_folder)})
     with (host_app / "Contents/Info.plist").open("rb") as stream:
         host_info = plistlib.load(stream)
     if host_info["CFBundleIdentifier"] == "oorg.sdrpp.sdrpp":
         sources["cty.dat"] = package / "resources/cty.dat"
     for name, source in sources.items():
         shutil.copyfile(source, payload / name)
-        (payload / name).chmod(0o755 if name.endswith(".dylib") or name == "dx_decoder" else 0o644)
+        (payload / name).chmod(0o755 if name.endswith(".dylib") or name == "dx_decoder" or name in NATIVE_BINARIES else 0o644)
     manifest = {"version": version, "hostBundleID": host_info["CFBundleIdentifier"],
         "hostVersion": host_info["CFBundleVersion"],
         "hostCoreSHA256": hashlib.sha256((host_app / "Contents/Frameworks/libsdrpp_core.dylib").read_bytes()).hexdigest(),
-        "hostLibraries": sorted({name for binary in ["dx_notebook.dylib", "dx_decoder"] for name in re.findall(r"@rpath/([^\s]+\.dylib)", subprocess.check_output(["otool", "-L", str(package / binary_folder / binary)], text=True))}),
+        "hostLibraries": sorted({name for binary in ["dx_notebook.dylib", "dx_decoder", *[value for value in mode_files(package / binary_folder) if value in NATIVE_BINARIES]] for name in re.findall(r"@rpath/([^\s]+\.dylib)", subprocess.check_output(["otool", "-L", str(package / binary_folder / binary)], text=True)) if name not in sources}),
         "files": {name: hashlib.sha256((payload / name).read_bytes()).hexdigest() for name in sources}}
     (payload / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -75,7 +77,7 @@ def build_installer(package, version, identity, brown_app, sdrpp_app=None):
             "NSLocationWhenInUseUsageDescription": "Suggest a Maidenhead home grid for receiver distances and bearings. Confirm or edit the suggested grid before installing."}
     with (contents / "Info.plist").open("wb") as stream:
         plistlib.dump(info, stream)
-    for name in ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"):
+    for name in ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copyfile(ROOT / name, contents / "Resources" / name)
     shutil.copyfile(ROOT / "resources/cty-LICENSE.txt", contents / "Resources/cty-LICENSE.txt")
     # Sign nested code before the enclosing bundle. The payload keeps the exact

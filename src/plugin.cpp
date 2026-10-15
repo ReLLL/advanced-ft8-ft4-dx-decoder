@@ -29,9 +29,10 @@ std::pair<std::string,std::string> countryFor(const DXCountryDatabase& database,
 SDRPP_MOD_INFO{"advanced_ft8_ft4_dx_decoder","Advanced FT8/FT4 DX Decoder","ReLLL",DX_VERSION_MAJOR,DX_VERSION_MINOR,DX_VERSION_PATCH,1};
 DXChannel::DXChannel(DXNotebook* parent,dx::Preset p,double center):owner(parent),preset(std::move(p)){
  name="dx_notebook_"+preset.mode+"_"+std::to_string(preset.dial);
- vfo=sigpath::iqFrontEnd.addVFO(name,24000,3000,preset.dial+1500-center);
+ float bandwidth=preset.mode=="FT8"||preset.mode=="FT4"?3000:6000;
+ vfo=sigpath::iqFrontEnd.addVFO(name,24000,bandwidth,preset.dial+bandwidth/2-center);
  if(!vfo)return;
- usb.init(&vfo->out,dsp::demod::SSB<dsp::stereo_t>::Mode::USB,3000,24000,0,0);
+ usb.init(&vfo->out,dsp::demod::SSB<dsp::stereo_t>::Mode::USB,bandwidth,24000,0,0);
  resampler.init(nullptr,24000,12000);sink.init(&usb.out,audio,this);sink.start();usb.start();
 }
 DXChannel::~DXChannel(){accept=false;if(vfo){sink.stop();usb.stop();sigpath::iqFrontEnd.removeVFO(name);}}
@@ -45,7 +46,7 @@ void DXChannel::audio(dsp::stereo_t* input,int count,void* context){
 #else
  c->streamMs=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 #endif
- auto job=c->capture.feed(mono.data(),mono.size(),c->streamMs,c->preset.dial,c->preset.mode);c->samples=c->capture.samples();c->discontinuities=c->capture.discontinuities();
+ auto job=c->capture.feed(mono.data(),mono.size(),c->streamMs,c->preset.dial,c->preset.mode,c->preset.periodMs,c->preset.submode);c->samples=c->capture.samples();c->discontinuities=c->capture.discontinuities();
  c->progress=c->capture.progress();if(job){if(c->replay)job->source="replay";c->owner->engine().enqueue(std::move(*job));}
 }
 DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
@@ -111,7 +112,7 @@ DXNotebook::~DXNotebook(){
  for(const auto& icon:cornerIcons_)if(icon.second){auto texture=icon.second;glDeleteTextures(1,&texture);}gui::waterfall.onInputProcess.unbindHandler(&inputHandler_);channels_.clear();gui::menu.removeEntry(name_);engine_.reset();if(homeIcon_)glDeleteTextures(1,&homeIcon_);
 }
 void DXNotebook::enable(){enabled_=true;open_=true;present_=true;engine_->resetStats();if(settingsLoaded_&&clearOnStart_){if(historyAll_)historyTableCleared_=historyMapCleared_=0;tableCleared_=mapCleared_=int64_t(time(nullptr))+1;selected_.reset();selectedCountry_.clear();engine_->selectCountry("");tableQuery_.offset=0;save();refresh();}}
-void DXNotebook::disable(){enabled_=false;cornerVisible_=false;channels_.clear();engine_->active(false);}
+void DXNotebook::disable(){enabled_=false;cornerVisible_=false;channels_.clear();engine_->invalidateAdditional();engine_->active(false);}
 void DXNotebook::metadata(){
 #if DX_HOST_BROWN
  core::configManager.acquire();auto homeGrid=core::configManager.conf.value("operatorLocation","");auto operatorCall=core::configManager.conf.value("operatorCallsign","");core::configManager.release();
@@ -120,17 +121,18 @@ void DXNotebook::metadata(){
 #endif
  if(auto point=dx::gridPoint(homeGrid);point&&(point->lat!=home_.lat||point->lon!=home_.lon)){home_=*point;engine_->home(home_);if(selected_&&selected_->position){auto path=dx::distanceBearing(home_,*selected_->position);selected_->km=path.first;selected_->bearing=path.second;}}
  double center=gui::waterfall.getCenterFrequency(),rate=sigpath::iqFrontEnd.getSampleRate();bool playing=gui::mainWindow.isPlaying();
- if(center!=center_||rate!=rate_){channels_.clear();center_=center;rate_=rate;}
- auto eligible=dx::eligible(center,gui::waterfall.getBandwidth(),presets_);
- eligible.erase(std::remove_if(eligible.begin(),eligible.end(),[&](const auto& p){return p.mode=="FT8"?!ft8_:!ft4_;}),eligible.end());
- bool same=channels_.size()==eligible.size();if(same)for(size_t i=0;i<eligible.size();i++)same&=channels_[i]->preset.dial==eligible[i].dial&&channels_[i]->preset.mode==eligible[i].mode;
- if(!same){channels_.clear();for(auto p:eligible)channels_.push_back(std::make_unique<DXChannel>(this,p,center));}
+ if(center!=center_||rate!=rate_){channels_.clear();engine_->invalidateAdditional();center_=center;rate_=rate;}
+ auto configured=presets_;for(const auto& p:additionalPresets())if(std::none_of(configured.begin(),configured.end(),[&](const auto& x){return x.mode==p.mode&&x.dial==p.dial;}))configured.push_back(p);
+ auto eligible=dx::eligible(center,gui::waterfall.getBandwidth(),configured);size_t modeBytes=0;int modeChannels=0;
+ eligible.erase(std::remove_if(eligible.begin(),eligible.end(),[&](auto& p){if(!modeEnabled(p.mode))return true;if(p.mode=="FT8"||p.mode=="FT4")return false;auto config=modeSettings_.value(p.mode,dx::Json::object());p.periodMs=config.value("period_ms",p.mode=="FST4"||p.mode=="Q65"?60000:120000);auto period=dx::capturePeriodMs(p.mode,p.periodMs);if(!period)return true;p.submode=p.mode=="Q65"?std::clamp(config.value("submode",0),0,p.periodMs==15000?2:p.periodMs==30000?3:4):0;size_t bytes=size_t(*period)*24;if(modeChannels>=4||modeBytes+bytes>96*1024*1024)return true;modeBytes+=bytes;++modeChannels;return false;}),eligible.end());
+ bool same=channels_.size()==eligible.size();if(same)for(size_t i=0;i<eligible.size();i++)same&=channels_[i]->preset.dial==eligible[i].dial&&channels_[i]->preset.mode==eligible[i].mode&&channels_[i]->preset.periodMs==eligible[i].periodMs&&channels_[i]->preset.submode==eligible[i].submode;
+ if(!same){channels_.clear();engine_->invalidateAdditional();for(auto p:eligible)channels_.push_back(std::make_unique<DXChannel>(this,p,center));}
  core::configManager.acquire();bool replay=core::configManager.conf.value("source","")=="File";core::configManager.release();
- auto now=ImGui::GetTime();for(auto& c:channels_){bool ready=enabled_&&!paused_&&playing;if(ready!=c->accept.load()){c->resetRequested=true;c->progress=0;}c->accept=ready&&c->vfo;c->replay=replay;
+ auto now=ImGui::GetTime();bool invalidate=false;for(auto& c:channels_){bool ready=enabled_&&!paused_&&playing;if(ready!=c->accept.load()){c->resetRequested=true;c->progress=0;invalidate=true;}c->accept=ready&&c->vfo;c->replay=replay;
   auto blocks=c->blocks.load();if(!ready||blocks!=c->lastBlocks){c->lastBlocks=blocks;c->lastData=now;c->nextRetry=now+3;}
   else if(now-c->lastData>3&&now>c->nextRetry){auto preset=c->preset;auto retries=c->reconnects+1;c.reset();c=std::make_unique<DXChannel>(this,preset,center);c->reconnects=retries;c->lastData=now;c->nextRetry=now+std::min(30.,double(retries)*3);}
- }engine_->active(enabled_&&!paused_&&playing&&!channels_.empty());
- std::string bands;for(auto& c:channels_){if(!bands.empty())bands+=',';bands+=dx::bandName(c->preset.dial);}engine_->alertContext(bands,ft8_,ft4_);
+ }if(invalidate)engine_->invalidateAdditional();engine_->active(enabled_&&!paused_&&playing&&!channels_.empty());
+ std::string bands,modes;for(auto& c:channels_){if(!bands.empty()){bands+=',';modes+=',';}bands+=dx::bandName(c->preset.dial);modes+=c->preset.mode;}engine_->alertContext(bands,ft8_,ft4_,modes);
  dx::GridTrackerContext forwarding;forwarding.grid=homeGrid;forwarding.call=operatorCall;for(auto& c:channels_)forwarding.channels.push_back(c->preset);engine_->gridTrackerContext(std::move(forwarding));
 }
 std::string DXNotebook::handleDebugCommand(const std::string& command,const std::string& args){std::lock_guard<std::mutex> lock(uiMutex_);

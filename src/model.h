@@ -29,8 +29,9 @@ std::string callsignLookupUrl(const std::string& call,int provider);
 bool matches(const std::string& value,const std::string& patterns);
 struct Meaning {std::string transmitter,called,grid,type="Text";};
 Meaning meaning(const std::string& message);
+Meaning receptionMeaning(const std::string& mode,const std::string& message);
 std::string targetCall(const Meaning& identity);
-enum class MessageKind {All,GeneralCall,Exchange,Other};
+enum class MessageKind {All,GeneralCall,Exchange,Other,Beacon};
 MessageKind messageKind(const Meaning& identity);
 struct ActivityBearing {std::optional<double> degrees;double alignment=0;int stations=0;};
 struct Decode;
@@ -51,6 +52,7 @@ struct Decode {
  int64_t utc=0,dial=0,slotMs=0; int audio=0,snr=0;
  std::optional<double> dt; std::string mode,message,raw,source="live",country,continent;
  Meaning identity; std::optional<Point> position; std::optional<double> km,bearing;
+ int periodMs=0,submode=-1,averagedIntervals=1;std::optional<int> txPowerDbm;
  std::string gridSource; int64_t gridUtc=0; bool firstCall=false,firstGrid=false,firstCountry=false,distanceRecord=false;
  std::string identitySource="literal";
  Json json() const; static Decode fromJson(const Json& j);
@@ -78,8 +80,8 @@ struct ExchangePath{std::string transmitter,called;int64_t utc=0,fromGridUtc=0,t
 bool frequencyVisible(int64_t frequency,std::pair<double,double> spectrum);
 struct Stats {int64_t countries=0,stations=0,recentStations=0,messages=0;double farthest=0,activeSeconds=0;std::string farthestCountry,farthestCall;std::vector<Decode> latest,latestCountries;std::optional<Decode> farthestReception;std::vector<std::string> heardCountries,newestCountries;bool isNewestCountry(const std::string& country)const;};
 std::string bandName(int64_t hz);
-struct Job {uint64_t id=0;int64_t utcMs=0,dial=0,deadlineMs=0;std::string mode,source="live";std::vector<int16_t> pcm;int retry=0;};
-struct Preset {int64_t dial;std::string mode;};
+struct Job {uint64_t id=0;int64_t utcMs=0,dial=0,deadlineMs=0;std::string mode,source="live";std::vector<int16_t> pcm;int retry=0,periodMs=0,submode=0;uint64_t context=0;};
+struct Preset {int64_t dial;std::string mode;int periodMs=0,submode=0;};
 std::vector<Preset> presets();
 std::vector<Preset> eligible(double center,double width,const std::vector<Preset>& all);
 }

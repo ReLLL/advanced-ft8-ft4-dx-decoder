@@ -1,5 +1,15 @@
 # Third-party notices
 
+See [CREDITS.md](CREDITS.md) for acknowledgements of the protocol designers, decoder developers and other upstream contributors. Original copyright and license notices remain authoritative.
+
+## WSJT development group copyright
+
+The following notice is reproduced from the pinned WSJT-X `doc/common/license.adoc`, with its program-name placeholder expanded to WSJT-X:
+
+> The algorithms, source code, look-and-feel of WSJT-X and related programs, and protocol specifications for the modes FSK441, FST4, FST4W, FT4, FT8, JT4, JT6M, JT9, JT44, JT65, JTMS, Q65, QRA64, ISCAT, and MSK144 are Copyright (C) 2001-2026 by one or more of the following authors: Joseph Taylor, K1JT; Bill Somerville, G4WJS; Steven Franke, K9AN; Nico Palermo, IV3NWV; Uwe Risse, DG2YCB; Brian Moran, N9ADG; John Nelson, G4KLA; Charles Suckling, DL3WDG; Roger Rehr, W3SZ; Greg Beam, KI7MT; Michael Black, W9MDB; Edson Pereira, PY2SDR; Philip Karn, KA9Q; and other members of the WSJT Development Group.
+
+The adapted FT8/FT4 source also retains the copyright notices from its earlier WSJT/MSHV revisions. Full upstream licenses and per-file notices accompany the corresponding source.
+
 ## SDR++Brown and MSHV
 
 The plugin integrates with [SDR++Brown](https://github.com/sannysanoff/SDRPlusPlusBrown), pinned at `679f48deee5299a199d15d30e6e785fac6054896`. Its FT8/FT4 decoder contains adapted MSHV code and upstream author notices. GPL terms apply. The staging script applies FFT plan lifetime fixes, without changing decoder sensitivity or algorithms. Release assets include the staged corresponding source and upstream license notices.
@@ -7,6 +17,10 @@ The plugin integrates with [SDR++Brown](https://github.com/sannysanoff/SDRPlusPl
 ## Mapbox Earcut
 
 `third_party/earcut/earcut.hpp` is the unmodified header from [Mapbox Earcut](https://github.com/mapbox/earcut.hpp), version 3.2.4, commit `177bd66b5338ab66f4e9ce8f3cca418b9463d809`. Its ISC license is included in `third_party/earcut/LICENSE`.
+
+## WSJT-X native receive decoders
+
+The additional-mode helpers use unmodified WSPR, FST4/FST4W and Q65 decoder routines from [WSJT-X](https://github.com/WSJTX/wsjtx), commit `967c85a6119110788b0df3782cf796485b2cee14`. The staged subsets and per-file SHA-256 values are recorded in `third_party/wsjtx/source-pin.json` and `mode-source-pin.json`; GPLv3 is included as `third_party/wsjtx/COPYING`. Original author notices are retained. This project adds native framing and receiver adapters. Separate reference tests use upstream encoders and do not install test executables. A Fortran compiler is a build dependency; users need no compiler or Python runtime.
 
 ## Map data and providers
 
@@ -17,6 +31,8 @@ See [OpenStreetMap attribution](https://www.openstreetmap.org/copyright), [OpenS
 ## Runtime and system components
 
 The host provides SDR++ core, Volk and FFTW runtime libraries. SQLite, curl, AppKit, AudioToolbox and OpenGL are used through the macOS/host environment. These libraries are not redistributed as plugin-owned binary dependencies.
+
+Additional-mode builds bundle GCC 14.3 `libgfortran`, `libquadmath` and `libgcc_s` runtime libraries from the verified Homebrew `arm64_sequoia` bottle. Their arithmetic implementations are unchanged; copied Mach-O install names use relative paths and binaries are signed for distribution. GNU GPLv3 with the GCC Runtime Library Exception applies where specified upstream; libquadmath uses GNU LGPL 2.1-or-later. `COPYING.RUNTIME` and `COPYING.LIB` accompany the payload. Runtime provenance records the bottle checksum and Homebrew formula revision. The corresponding-source archive also includes the full GCC 14.3 source archive, the matching Darwin patch and the Homebrew build recipe under `build-mode-runtime/runtime-source/`. Library replacement and rebuilding are permitted under the applicable licenses.
 
 ## GridTracker compatibility
 

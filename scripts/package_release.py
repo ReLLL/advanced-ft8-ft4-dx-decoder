@@ -11,10 +11,12 @@ import tempfile
 import zipfile
 import time
 from build_installer import build_installer, sign
+from mode_payload import mode_files, NATIVE_BINARIES
+from stage_runtime_sources import prepare as prepare_runtime_sources
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_FILES = ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "CMakeLists.txt", ".gitignore", "AGENTS.md")
-SOURCE_DIRS = ("src", "scripts", "tests", "docs", "installer", "third_party/earcut")
+PUBLIC_FILES = ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "CMakeLists.txt", ".gitignore", "AGENTS.md")
+SOURCE_DIRS = ("src", "scripts", "tests", "docs", "installer", "cmake", "third_party/earcut", "third_party/wsjtx")
 
 
 def notarize(path, profile):
@@ -56,6 +58,11 @@ def source_files():
         for path in sorted((ROOT / name).rglob("*")):
             if path.is_file() and "__pycache__" not in path.parts:
                 yield path
+    runtime_sources=ROOT / "build-mode-runtime/runtime-source"
+    if runtime_sources.exists():
+        for path in sorted(runtime_sources.iterdir()):
+            if path.is_file() and not path.name.endswith(".partial"):
+                yield path
 
 
 def main():
@@ -75,16 +82,23 @@ def main():
         if manifest != {"host": host, "version": version}:
             raise ValueError("Binary host/version manifest does not match this release")
     name = "advanced-ft8-ft4-dx-decoder-" + version
+    if mode_files(args.build):
+        prepare_runtime_sources(ROOT / "build-mode-runtime/runtime-source")
     output = ROOT / "dist"
     output.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="dx-release-") as temporary:
         package = Path(temporary) / name
-        for relative in ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "scripts/install.py", "resources/world.geojson", "resources/cty.dat", "resources/cty-LICENSE.txt", "third_party/earcut/LICENSE", "docs/INSTALL.md", "docs/USER_GUIDE.md", "docs/images/live-reception-overview.jpg", "docs/images/decoder-workspace.jpg"):
+        for relative in ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "scripts/install.py", "scripts/mode_payload.py", "resources/world.geojson", "resources/cty.dat", "resources/cty-LICENSE.txt", "third_party/earcut/LICENSE", "docs/INSTALL.md", "docs/USER_GUIDE.md", "docs/images/live-reception-overview.jpg", "docs/images/decoder-workspace.jpg"):
             target = package / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, target)
         for build, folder in [(args.build, "bin")] + ([(args.sdrpp_build, "bin-sdrpp")] if args.sdrpp_build else []):
-            for binary in ("dx_notebook.dylib", "dx_decoder"):
+            extras=mode_files(build)
+            for relative in extras:
+                if relative not in NATIVE_BINARIES:
+                    (package / folder).mkdir(exist_ok=True)
+                    shutil.copyfile(build / relative, package / folder / relative)
+            for binary in ("dx_notebook.dylib", "dx_decoder", *[value for value in extras if value in NATIVE_BINARIES]):
                 target = package / folder / binary
                 target.parent.mkdir(exist_ok=True)
                 shutil.copyfile(build / binary, target)
@@ -96,7 +110,7 @@ def main():
                 strings = subprocess.check_output(["strings", str(target)])
                 if b"/Users/" in strings:
                     raise ValueError("Local user path in release binary")
-                sign(target, args.signing_identity, helper=binary == "dx_decoder")
+                sign(target, args.signing_identity, helper=binary in ("dx_decoder", "dx_modes_decoder", "dx_wspr_decoder"))
             shutil.copyfile(build / "dx_notebook.host.json", package / folder / "dx_notebook.host.json")
         app = build_installer(package, version, args.signing_identity, args.brown_app, args.sdrpp_app if args.sdrpp_build else None)
         if args.notary_profile:

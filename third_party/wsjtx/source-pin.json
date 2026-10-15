@@ -1,0 +1,24 @@
+{
+  "repository": "https://github.com/WSJTX/wsjtx",
+  "commit": "967c85a6119110788b0df3782cf796485b2cee14",
+  "files": {
+    "COPYING": "b4bbff835ca86b6051284a77138b7b31db215fb3e8aa70221464126cc9ad60fa",
+    "lib/indexx.f90": "83d59a898af1be01f5915e7c40889b7d87270155c12bb1fe0e772879da338875",
+    "lib/wsprd/README": "893e8d41fe67de7c9a34b63db9174aef635843f69a226caab645a2088e7494c0",
+    "lib/wsprd/wsprd.c": "f0c1c8508e612159a4a2040ceb34326606f83aa9b2d7226229cb453bf4ab57ea",
+    "lib/wsprd/wsprd_utils.c": "133526020b0bc84afd0b736108e544ca9566e784e463321b5f644bdf5226ecab",
+    "lib/wsprd/wsprd_utils.h": "04ff90f5386ccfe2872ca56b0ac2ca2b7c0398b4fdedff3aa9ca45b2d37852ba",
+    "lib/wsprd/wsprsim.c": "d74b1aee6bc375dad1e2863465620e2770ec0c8058d6d64b2fb8bab24089d7a3",
+    "lib/wsprd/wsprsim_utils.c": "0218978e6d9ec498a4e1950cf56ca91d01e5ce49f71ebee070cbd9ce01a21f1c",
+    "lib/wsprd/wsprsim_utils.h": "7eee512e662cc1324e855716bf44db9c943e63240f7d567325c9dacf7a1fc261",
+    "lib/wsprd/fano.c": "72d3e176e75b7714916aed9fbf36f003b7ea5f511f0dd13e96e9ddbc2e159a15",
+    "lib/wsprd/fano.h": "1955cd1d71d4cfb69cd5a4cc7dd563d239948fa9e302f1cfe4f40e8b5409ff65",
+    "lib/wsprd/jelinek.c": "489dca79d5094f5437c6362e49df998c33f4c1ef98abf8b85104af0b74614ed1",
+    "lib/wsprd/jelinek.h": "72cc0edd4f079c4e23c42535a1a71ccfd5c55aad3dff9ae94d2c6c8f43ebd2b8",
+    "lib/wsprd/nhash.c": "cb46be03631e31528d2159eb0f54674776bd9f84f6b9a1d54307deb2196dc432",
+    "lib/wsprd/nhash.h": "067d02ce073cd90c1d6668d80b4d50e658365a84ba6c2eb2f13b98caca859511",
+    "lib/wsprd/tab.c": "c453b07ac25d30227e4d25c0e134718a1858cf9ab801a1679935925957fcfe54",
+    "lib/wsprd/metric_tables.c": "aaa4e6df79394b25335feaffa5d1f20667680ae54b34fe34944fa8ccd5f4ec81",
+    "lib/wsprd/osdwspr.f90": "79a88cdaf75f49d466da0e85157d27e9d58ec6c866e37236e717117f3192cb8e"
+  }
+}

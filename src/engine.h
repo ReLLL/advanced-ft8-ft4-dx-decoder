@@ -28,6 +28,7 @@ struct Snapshot {
  Store::RetentionState retention;std::string retentionError;uint64_t historyBytes=0,historyChecks=0;
  std::string error,notice,alert,alertTone;int64_t alertUtc=0;bool alertSound=false;size_t pendingWrites=0,queued=0;uint64_t skipped=0,failures=0,decodedJobs=0;
  double lastDecodeMs=0;int helperPid=-1;bool decoding=false;
+ std::string modeError;bool modeDecoding=false;size_t modeQueued=0;
 };
 class Engine {
 public:
@@ -39,22 +40,24 @@ public:
  void select(const Decode& d,int offset=0);void settings(Json values);void exportData(Query query,std::filesystem::path path,bool csv);
  void selectCountry(std::string country,int offset=0);
  void active(bool enabled);void retry();std::shared_ptr<const Snapshot> snapshot()const;
- void alertContext(std::string bands,bool ft8,bool ft4);
+ void alertContext(std::string bands,bool ft8,bool ft4,std::string modes="");
  void home(Point point);
  void resetStats();
  void ignoreTransmitter(std::string call,bool deleteRecords=false);void ignoreMessage(std::string message,bool deleteRecords=false);void unignoreAll();
  uint64_t moderate(IgnoreTarget target,bool deleteRecords,bool ignoreFuture);
  uint64_t previewCleanup(SavedCleanup criteria);uint64_t deleteSaved(SavedCleanup criteria,int64_t throughId);
  void gridTrackerContext(GridTrackerContext context);
+ void invalidateAdditional();
  void hover(const Decode& station);
 private:
- void decodeLoop();void storeLoop();void importText(Store& store);void publish(Store& store);
+ void decodeLoop();void modeLoop();void storeLoop();void importText(Store& store);void publish(Store& store);
  void hideIgnored(const IgnoreTarget& target);
  bool manageSaved(Store& store);
  std::filesystem::path root_;Helper helper_;Point home_;
  std::function<std::pair<std::string,std::string>(const std::string&)> country_;
  mutable std::mutex mutex_;std::condition_variable cv_;std::thread decoder_,writer_;std::atomic<bool> stopping_{false};
  std::deque<Job> jobs_;std::deque<Decode> writes_;std::shared_ptr<const Snapshot> snapshot_=std::make_shared<Snapshot>();
+ Helper modeHelper_;std::thread modeDecoder_;std::deque<Job> modeJobs_;uint64_t modeContext_=1;std::atomic<bool> modeCancel_{false},modeDone_{false};
  Query table_,map_;uint64_t generation_=1;bool queryDirty_=true,active_=false,retry_=false,blocked_=false;
  std::optional<Decode> selection_;std::string selectionCountry_;int historyOffset_=0;bool selectionDirty_=false;
  std::optional<Decode> hovered_;
@@ -68,17 +71,18 @@ private:
  bool pendingStatsReset_=false;int64_t statsAfterId_=0,statsSince_=0;double sessionSeconds_=0;
  CsvLog csv_;int64_t arrivalCursor_=0,startedAt_=0,startAfterId_=0;std::atomic<bool> decoderDone_{false};
  GridTracker gridTracker_;GridTrackerContext gridTrackerContext_;CornerFeed cornerFeed_;
- std::string alertBands_;bool alertFT8_=true,alertFT4_=true;Alerts alerts_;int64_t lastBaseline_=0;
+ std::string alertBands_,alertModes_;bool alertFT8_=true,alertFT4_=true;Alerts alerts_;int64_t lastBaseline_=0;
 };
 // Complete UTC slots only. A timestamp discontinuity or reset invalidates partial data.
 class SlotCapture {
 public:
- std::optional<Job> feed(const float* samples,size_t count,int64_t endMs,int64_t dial,const std::string& mode);
+ std::optional<Job> feed(const float* samples,size_t count,int64_t endMs,int64_t dial,const std::string& mode,int periodMs=0,int submode=0);
  void reset(){pcm_.clear();slot_=-1;nextSample_=-1;}
  double progress()const{return pcm_.size()/double(periodSamples_);}
  uint64_t discontinuities()const{return discontinuities_;}uint64_t samples()const{return samples_;}
 private:
  int64_t slot_=-1,nextSample_=-1;size_t periodSamples_=180000;std::vector<int16_t> pcm_;
+ std::string mode_;int64_t dial_=0;int submode_=0;
  uint64_t discontinuities_=0,samples_=0;
 };
 }

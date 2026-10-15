@@ -4,6 +4,12 @@
 
 Created by [ReLLL](https://github.com/ReLLL). Free software under GPL-3.0-or-later.
 
+## Credits
+
+This plugin builds on the weak-signal protocols, decoder algorithms and software developed by the **WSJT-X / WSJT development team**, including **Joe Taylor K1JT, Steve Franke K9AN, Bill Somerville G4WJS and Nico Palermo IV3NWV**, and many other contributors. Our FT8/FT4 decoder comes through **MSHV**, adapted by **Hrisimir Hristov LZ2HV**, and SDR++Brown. We thank the protocol designers, decoder developers, maintainers and testers whose work makes this possible.
+
+ReLLL develops this plugin's receiver integration, mapping, reception history and interface. See [full credits](CREDITS.md) for upstream projects, authors and source references, and [third-party notices](THIRD_PARTY_NOTICES.md) for licenses. Upstream credits do not imply endorsement.
+
 ## Download and install
 
 [Download the latest release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26.
@@ -57,6 +63,14 @@ The code identifies an area; the plugin calculates distances from its center. Si
 Closing the decoder window keeps reception, logging, alerts and integrations running while the sidebar switch is on. Open brings the window forward with current data and preserves its size and position. Each host starts with empty visible views and fresh session statistics by default. **Use saved history for stats** includes retained receptions in the totals. **Use saved history for everything** also restores the map, table and first-heard times. Both start off and load in the background; uptime always measures this session's active decoding. Live reception, table/map updates and logging continue while history is enabled. Clear asks for confirmation and preserves saved logs. Its checked **Reset stats** option returns to session mode and turns off both history options.
 
 Map markers and table rows share station actions. Ignore transmitter blocks future receptions and keeps saved data. Delete transmitter removes saved receptions and allows new ones. Each confirmation offers one unchecked checkbox to also do the other operation. Unresolved and malformed identities are accepted; rows with no transmitter identity match only that exact message. Unignore allows future receptions without restoring deleted records.
+
+## Additional receive modes in development build 1.0.33
+
+The next build also receives **WSPR, FST4, FST4W and Q65**, using pinned official WSJT-X decoder routines. These optional modes start off. Open **Modes...** or **Settings > Reception**, enable a mode, and match its on-air sequence length and, for Q65, tone-spacing submode. FT8/FT4 keep their existing controls. Q65 currently decodes individual sequences without cross-sequence averaging. The published 1.0.32 download contains FT8/FT4 support.
+
+The same map, tables, countries, saved history and CSV logging handle the new receptions. The shared **Mod** filter selects a protocol; **Beacon** selects WSPR/FST4W messages. Details show reported transmitter power separately from the SNR measured at your receiver. Map shapes identify mode: circles for FT8/FT4, squares for WSPR, triangles for FST4, diamonds for FST4W and hexagons for Q65. Distances remain relative to your home grid; beacons have no QSO target or communication arc. GridTracker forwarding currently covers FT8/FT4.
+
+Capture waits for a complete UTC sequence. Progress shows elapsed and total seconds; tuning, stopping or changing modes discards partial audio. Additional modes use a separate bounded worker, with at most four capture channels, 96 MB of capture audio and 64 MB of queued audio. Skipped jobs are counted. See [mode configuration and validation](docs/MULTIMODE.md).
 
 ## Screenshots
 

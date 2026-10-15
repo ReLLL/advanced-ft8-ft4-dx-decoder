@@ -43,12 +43,13 @@ void DXNotebook::settingsWindow() {
    if(ImGui::Button("Use range for table and map")){tableTime_=12;changed=true;}
   }else if(settingsPage_==1){
    ImGui::TextUnformatted("Enabled modes");changed|=ImGui::Checkbox("FT8",&ft8_);ImGui::SameLine();changed|=ImGui::Checkbox("FT4",&ft4_);
+   if(dx::modeSpec("WSPR")->available)changed|=modeSettings();
    ImGui::Spacing();ImGui::TextUnformatted("Custom frequencies");ImGui::InputText("Dial frequency in Hz",customDial_,sizeof(customDial_));
    auto add=[&](const char* mode){long long dial=0;char tail=0;if(std::sscanf(customDial_,"%lld %c",&dial,&tail)!=1||dial<=100000||dial>=10000000000LL){settingsError_="Enter a valid dial frequency.";return;}
     for(const auto& p:presets_)if(p.dial==dial&&p.mode==mode){settingsError_="This frequency and mode are already enabled.";return;}
     presets_.push_back({dial,mode});settingsError_.clear();changed=true;
    };
-   if(ImGui::Button("Add FT8"))add("FT8");ImGui::SameLine();if(ImGui::Button("Add FT4"))add("FT4");
+   if(ImGui::BeginCombo("Mode",customMode_)){for(const auto& mode:dx::modeSpecs())if(mode.available&&ImGui::Selectable(mode.name.data(),mode.name==customMode_))std::snprintf(customMode_,sizeof(customMode_),"%s",mode.name.data());ImGui::EndCombo();}if(ImGui::Button("Add frequency"))add(customMode_);
    if(!settingsError_.empty())ImGui::TextWrapped("%s",settingsError_.c_str());
    ImGui::Separator();changed|=text("Watch calls and favorites",watchCalls_);ImGui::TextDisabled("Comma-separated calls or wildcards");
    ImGui::Separator();ImGui::TextUnformatted("DX activity bearing");changed|=ImGui::SliderInt("Farthest stations",&directionStations_,1,25);ImGui::TextDisabled("Reception window: last 15 minutes");ImGui::TextWrapped("Approximate geographic bearing of distant stations heard on the displayed bands. This describes reception activity; actual propagation paths and arrival angles are not measured.");

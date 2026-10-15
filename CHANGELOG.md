@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.33 (unreleased development)
+
+- Add optional WSPR, FST4, FST4W and Q65 reception using pinned official WSJT-X decoder sources, with mode-specific periods and Q65 tone spacing in Reception settings. New modes start off; FT8/FT4 keep their existing controls and decoder.
+- Use a separate bounded worker for additional modes, complete UTC captures, cancellation on retuning/stopping, bounded temporary files and bundled macOS 15-compatible Fortran runtimes. Q65 decodes individual sequences without cross-sequence averaging.
+- Extend shared mode/Beacon filters, reception history, CSV logging and details, including reported beacon transmitter power separately from receiver SNR. Keep FT8/FT4 map circles; add squares, triangles, diamonds and hexagons for the new modes.
+- Credit WSJT-X, the protocol designers and decoder authors in README, CREDITS.md and third-party notices; include credits in release downloads and the installer.
+
 ## 1.0.32
 
 - Enable Color based on SNR by default for new or unset preferences. The checkbox remains optional and saves the selected preference.

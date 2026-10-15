@@ -4,7 +4,7 @@ Read when: changing host integration, building a matching binary or publishing a
 
 ## Build requirements
 
-Apple Silicon macOS, Xcode command-line tools, CMake, Python 3 and matching SDR++ and SDR++Brown applications. Header dependencies can be installed with `brew install cmake fftw volk`. Each build uses its selected host's Frameworks directory.
+Apple Silicon macOS, Xcode command-line tools, CMake, Python 3 and matching SDR++ and SDR++Brown applications. Build dependencies can be installed with `brew install cmake fftw volk gcc boost`. Additional modes use the staged, pinned WSJT-X source and a Fortran compiler. Each build uses its selected host's FFTW library and verified macOS 15-compatible GCC runtime copies; do not substitute the developer machine's newer runtime. Runtime provenance and license files ship with both helpers. See [additional modes](MULTIMODE.md).
 
 The pinned host source is `679f48deee5299a199d15d30e6e785fac6054896` in [SDRPlusPlusBrown](https://github.com/sannysanoff/SDRPlusPlusBrown). The staging script copies the required source and applies FFT plan lifetime corrections; it preserves the upstream checkout.
 

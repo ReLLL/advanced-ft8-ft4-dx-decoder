@@ -28,6 +28,7 @@ void DXNotebook::details(){
    std::string grid=d.identity.grid.empty()?"--":d.identity.grid;if(d.dt){std::snprintf(number,sizeof(number)," | DT %+.1f s",*d.dt);grid+=number;}field("Grid / timing",grid,modeColor);ImGui::EndTable();
   }
   ImGui::PushTextWrapPos(0);ImGui::TextColored(messageColor,"\"%s\"",d.message.c_str());ImGui::PopTextWrapPos();
+  if(d.periodMs)ImGui::TextColored(modeColor,"Sequence: %d s%s",d.periodMs/1000,d.mode=="Q65"?(std::string(" | Q65-")+char('A'+std::clamp(d.submode,0,4))).c_str():"");if(d.txPowerDbm)ImGui::TextColored(distanceColor,"Transmitter power: %d dBm (%.3g W) | reported by sender",*d.txPowerDbm,std::pow(10.,(*d.txPowerDbm-30)/10.));
   ImGui::TextDisabled("Source: %s | Identity: %s | Grid: %s",d.source.c_str(),d.identitySource.c_str(),d.gridSource.empty()?"unavailable":d.gridSource.c_str());ImGui::Separator();
  }
  ImGui::TextDisabled("Distances: %s",dx::distanceUnit(distanceMiles_));
