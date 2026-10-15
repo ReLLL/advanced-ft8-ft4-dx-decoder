@@ -69,8 +69,10 @@ void DXNotebook::map(const std::vector<dx::Row>& rows){
   }
   draw->Flags=fillFlags;
  }
+ const double spectrumCenter=gui::waterfall.getCenterFrequency()+gui::waterfall.getViewOffset(),spectrumWidth=gui::waterfall.getViewBandwidth();
+ const std::pair<double,double> spectrum{spectrumCenter-spectrumWidth/2,spectrumCenter+spectrumWidth/2};
  for(size_t index=0;index<snapshot->paths.size();index++){
-  const auto& path=snapshot->paths[index];if(path.points.size()<2)continue;
+  const auto& path=snapshot->paths[index];if(path.points.size()<2||!dx::frequencyVisible(path.frequency,spectrum))continue;
   std::vector<ImVec2> arc;double longitude=path.points.front().lon,previous=longitude;auto first=project(path.points.front());
   for(auto point:path.points){longitude+=std::remainder(point.lon-previous,360.);previous=point.lon;auto p=project(point);p.x=float(first.x+(longitude-path.points.front().lon)*scale);arc.push_back(p);}
   double dx=arc.back().x-arc.front().x,dy=arc.back().y-arc.front().y,length=std::hypot(dx,dy);if(length<1)continue;
@@ -101,10 +103,10 @@ void DXNotebook::map(const std::vector<dx::Row>& rows){
  if(hoveredStation&&!homeHovered&&ImGui::IsMouseReleased(1)){mapContext_=*hoveredStation->d;ImGui::OpenPopup("map_station_actions");}
  if(ImGui::BeginPopup("map_station_actions")){if(mapContext_)stationMenu(*mapContext_,rows);ImGui::EndPopup();}
  if(hoveredStation&&!homeHovered&&!ImGui::IsPopupOpen("map_station_actions")){const auto& d=*hoveredStation->d;engine_->hover(d);ImGui::BeginTooltip();ImGui::PushTextWrapPos(420);
-  ImGui::Text("%s | %s",d.identity.transmitter.c_str(),d.country.empty()?"Unknown":d.country.c_str());ImGui::Text("Age: %s | %s | %s | %+d dB SNR",dx::ageText(d.utc,time(nullptr)).c_str(),dx::bandName(d.dial).c_str(),d.mode.c_str(),d.snr);
+  ImGui::Text("%s | %s",d.identity.transmitter.c_str(),d.country.empty()?"Unknown":d.country.c_str());const auto referenceUtc=int64_t(time(nullptr));ImGui::Text("%s: %s | %s | %s | %+d dB SNR",dx::ageLabel(d.utc,referenceUtc),dx::ageText(d.utc,referenceUtc).c_str(),dx::bandName(d.dial).c_str(),d.mode.c_str(),d.snr);
   if(d.km)ImGui::Text("Distance: %s%s",dx::distanceSummary(*d.km,distanceMiles_).c_str(),d.gridSource=="cached"?" | cached grid":"");else ImGui::TextUnformatted("Distance unavailable: no recent received grid");ImGui::Text("Grid: %s | %.4f, %.4f",d.identity.grid.c_str(),d.position->lat,d.position->lon);ImGui::PopTextWrapPos();ImGui::Separator();ImGui::TextDisabled("Latest 5 unique messages");
   bool ready=snapshot->hoverStation&&snapshot->hoverStation->identity.transmitter==d.identity.transmitter&&snapshot->hoverStation->dial==d.dial&&snapshot->hoverStation->mode==d.mode&&!snapshot->hoverMessages.empty();
-  auto messageRow=[](const dx::Decode& message){tm stamp{};time_t time=message.utc;gmtime_r(&time,&stamp);char clock[16];std::strftime(clock,sizeof(clock),"%H:%M:%S",&stamp);ImGui::Text("%s UTC  \"%s\"",clock,message.message.c_str());};
+  auto messageRow=[](const dx::Decode& message){auto color=dx::snrMapColor(message.snr);ImGui::TextColored({.60f,.76f,.86f,1},"%s",dx::localDateTime(message.utc).c_str());ImGui::SameLine(0,8);ImGui::TextColored({.92f,.94f,.95f,1},"\"%s\"",message.message.c_str());ImGui::SameLine(0,8);ImGui::TextColored({color[0],color[1],color[2],color[3]},"%+d dB SNR",message.snr);};
   if(ready)for(const auto& message:snapshot->hoverMessages)messageRow(message);else messageRow(d);
   if(hoveredStation->count>1)ImGui::TextDisabled("Latest reception in this marker (%d entries)",hoveredStation->count);ImGui::EndTooltip();if(ImGui::IsMouseClicked(0)){selected_=d;engine_->select(d);save();}
  }

@@ -19,9 +19,9 @@ void DXNotebook::settingsWindow() {
  bool visible=ImGui::Begin("Advanced FT8/FT4 DX Decoder Settings###dx_notebook_settings",&settingsOpen_,ImGuiWindowFlags_NoCollapse);
  settingsVisible_=true;settingsMin_=ImGui::GetWindowPos();auto size=ImGui::GetWindowSize();settingsMax_={settingsMin_.x+size.x,settingsMin_.y+size.y};
  if(visible){
-  const char* pages[]={"General","Reception","Map","Alerts","Filters","History","Integrations"};
+  const char* pages[]={"General","Reception","Map","Alerts","Filters","History","Integrations","Saved messages"};
   ImGui::BeginChild("settings_navigation",{125,0},true);
-  for(int i=0;i<7;i++)if(ImGui::Selectable(pages[i],settingsPage_==i))settingsPage_=i;
+  for(int i=0;i<8;i++)if(ImGui::Selectable(pages[i],settingsPage_==i))settingsPage_=i;
   ImGui::EndChild();ImGui::SameLine();
   ImGui::BeginChild("settings_content",{0,0},false);
   ImGui::TextUnformatted(pages[settingsPage_]);ImGui::Separator();bool changed=false;
@@ -36,12 +36,11 @@ void DXNotebook::settingsWindow() {
    ImGui::BeginDisabled(!cornerEnabled_);changed|=ImGui::SliderInt("Notification duration (seconds)",&cornerSeconds_,2,120);ImGui::EndDisabled();
    int distanceUnit=distanceMiles_?1:0;const char* units[]={"Kilometers (km)","Miles (mi)"};if(ImGui::Combo("Distance units",&distanceUnit,units,2)){distanceMiles_=distanceUnit==1;changed=true;}
    const char* views[]={"Map + table","Table only","Map only"};changed|=ImGui::Combo("View",&view_,views,3);
-   changed|=ImGui::Checkbox("Link map and table filters",&link_);
    ImGui::TextWrapped("%s","By default, each launch starts with clear views and fresh session times. Saved history can be enabled in History.");
-   ImGui::Separator();changed|=timeWindow("Table time window",tableTime_);changed|=timeWindow("Map time window",mapTime_);
-   ImGui::BeginDisabled(historyAll_);ImGui::Spacing();ImGui::TextUnformatted("Custom UTC range");
-   changed|=ImGui::InputText("From UTC",customSince_,sizeof(customSince_));changed|=ImGui::InputText("To UTC",customUntil_,sizeof(customUntil_));ImGui::TextDisabled("YYYY-MM-DD HH:MM:SS");
-   if(ImGui::Button("Use range for table and map")){tableTime_=mapTime_=12;changed=true;}ImGui::EndDisabled();
+   ImGui::Separator();changed|=timeWindow("Map and table time window",tableTime_);
+   ImGui::Spacing();ImGui::TextUnformatted("Custom date range (computer time zone)");
+   if(ImGui::InputText("From",customSince_,sizeof(customSince_))){customSinceEpoch_=dx::localDateTimeParse(customSince_).value_or(0);changed=true;}if(ImGui::InputText("To",customUntil_,sizeof(customUntil_))){customUntilEpoch_=dx::localDateTimeParse(customUntil_,true).value_or(0);changed=true;}ImGui::TextDisabled("YYYY-MM-DD HH:MM:SS | Local time");if((customSince_[0]&&!customSinceEpoch_)||(customUntil_[0]&&!customUntilEpoch_))ImGui::TextWrapped("Enter valid local dates. Times skipped or repeated by daylight-saving changes are not accepted.");
+   if(ImGui::Button("Use range for table and map")){tableTime_=12;changed=true;}
   }else if(settingsPage_==1){
    ImGui::TextUnformatted("Enabled modes");changed|=ImGui::Checkbox("FT8",&ft8_);ImGui::SameLine();changed|=ImGui::Checkbox("FT4",&ft4_);
    ImGui::Spacing();ImGui::TextUnformatted("Custom frequencies");ImGui::InputText("Dial frequency in Hz",customDial_,sizeof(customDial_));
@@ -57,7 +56,7 @@ void DXNotebook::settingsWindow() {
    const char* sources[]={"Offline world map","Humanitarian OpenStreetMap","Street by Esri (English)"};if(ImGui::Combo("Map source",&mapView_.base,sources,3)){mapView_.zoom=std::min(mapView_.zoom,mapView_.base?65536.:32.);changed=true;}ImGui::TextWrapped("Online maps need internet; previously viewed tiles are cached.");auto cache=tiles_->stats();ImGui::TextDisabled("Map cache: %.1f MB of 256 MB",cache.diskBytes/(1024.*1024.));ImGui::Separator();
    ImGui::TextUnformatted("Map overlays");changed|=ImGui::Checkbox("Night shading and grayline",&mapView_.night);changed|=ImGui::Checkbox("Maidenhead grid",&mapView_.grids);changed|=ImGui::Checkbox("Country names (offline and OpenStreetMap)",&mapView_.labels);changed|=ImGui::Checkbox("Station counts on markers",&mapView_.counts);
    ImGui::Separator();changed|=ImGui::Checkbox("Highlight heard countries",&mapView_.highlightCountries);ImGui::BeginDisabled(!mapView_.highlightCountries);changed|=ImGui::ColorEdit4("Country highlight",mapView_.countryColor,ImGuiColorEditFlags_AlphaBar|ImGuiColorEditFlags_AlphaPreviewHalf|ImGuiColorEditFlags_Float);ImGui::EndDisabled();ImGui::TextWrapped("Heard countries in the current map view. Several DXCC entities may share one country outline.");
-   ImGui::Separator();ImGui::TextUnformatted("Recent exchanges");changed|=ImGui::SliderInt("Latest exchanges",&mapView_.recentPaths,0,10);changed|=ImGui::Checkbox("Animate paths",&mapView_.animatePaths);ImGui::TextWrapped("Each arc connects the transmitting station to the station it addresses. One arc per pair; general calls are excluded. Both stations need received grids. Map filters apply.");
+   ImGui::Separator();ImGui::TextUnformatted("Recent exchanges");changed|=ImGui::SliderInt("Latest exchanges",&mapView_.recentPaths,0,10);changed|=ImGui::Checkbox("Animate paths",&mapView_.animatePaths);ImGui::TextWrapped("Each arc connects the transmitting station to the station it addresses. One arc per pair; general calls are excluded. Both stations need received grids. Shared reception filters apply. Arcs show only messages inside the host's visible spectrum, including zoom and pan.");
   }else if(settingsPage_==3){
    ImGui::TextUnformatted("Notify me about");auto flag=[&](const char* label,const char* key,bool fallback){bool value=alerts_.value(key,fallback);if(ImGui::Checkbox(label,&value)){alerts_[key]=value;changed=true;}};
    flag("Distance records","distance",true);flag("New stations","station",false);flag("New countries","country",false);flag("New grids","grid",false);flag("Watch-list matches","watch",false);
@@ -74,19 +73,23 @@ void DXNotebook::settingsWindow() {
    int scope=alerts_.value("seconds",int64_t(3600))==0?1:0;const char* scopes[]={"Last hour","All history"};if(ImGui::Combo("Alert time window",&scope,scopes,2)){alerts_["seconds"]=scope?0:3600;changed=true;}
    if(ImGui::CollapsingHeader("Alert filters"))changed|=filterEditor(alertFilter_,"alerts");
   }else if(settingsPage_==4){
-   if(ImGui::CollapsingHeader("Table filters",ImGuiTreeNodeFlags_DefaultOpen))changed|=filterEditor(tableFilter_,"table");
-   if(ImGui::CollapsingHeader("Map filters"))changed|=filterEditor(mapFilter_,"map");
+   ImGui::TextDisabled("Shared by the map and all table tabs");changed|=filterEditor(tableFilter_,"table");
   }else if(settingsPage_==5){
    changed|=historyOptions();ImGui::TextWrapped("Saved history loads in the background. Filters still apply; uptime remains this session. Both options start off.");ImGui::Separator();ImGui::BeginDisabled(historyAll_);if(tableCleared_&&ImGui::Button("Restore table history")){tableCleared_=0;changed=true;}if(mapCleared_&&ImGui::Button("Restore map history")){mapCleared_=0;changed=true;}ImGui::EndDisabled();
-   ImGui::TextUnformatted("History and export");ImGui::TextWrapped("Exports use the current table filters and time window.");
+   auto retained=engine_->snapshot();ImGui::TextUnformatted("Database history");changed|=ImGui::Checkbox("Automatically limit saved database history",&historyAutoTrim_);ImGui::BeginDisabled(!historyAutoTrim_);if(ImGui::InputInt("Maximum receptions",&historyMaxRecords_,10000,50000)){historyMaxRecords_=std::clamp(historyMaxRecords_,10000,1000000);changed=true;}ImGui::EndDisabled();
+   ImGui::TextWrapped("Default: 100,000 receptions. Checked every 30 minutes and at startup. When exceeded, older database records are deleted in small background batches until 95%% remains (95,000 at the default limit). Higher limits can slow searches and filters. Saved statistics, map and tables use retained data. CSV logs have their own size limit below.");
+   ImGui::TextDisabled("Database and journal: %.1f MB | size checked every 30 minutes",retained->historyBytes/(1024.*1024.));
+   if(retained->retention.firstUtc)ImGui::TextWrapped("Database history since %s%s",dx::localDateTime(retained->retention.firstUtc).c_str(),retained->retention.running?" | cleaning older records":"");
+   if(retained->retention.deleted)ImGui::TextDisabled("Automatically deleted: %lld older receptions",static_cast<long long>(retained->retention.deleted));if(!retained->retentionError.empty())ImGui::TextWrapped("Automatic cleanup will retry: %s",retained->retentionError.c_str());
+   ImGui::Separator();ImGui::TextUnformatted("History and export");ImGui::TextWrapped("Exports use the current table filters and time window.");
    if(ImGui::Button("Export table CSV"))engine_->exportData(tableQuery_,root_/"Advanced FT8-FT4 DX Decoder.csv",true);
    if(ImGui::Button("Export table JSON"))engine_->exportData(tableQuery_,root_/"Advanced FT8-FT4 DX Decoder.json",false);
-   auto moderation=engine_->snapshot();ImGui::Separator();ImGui::Text("Ignored identities: %zu | messages: %zu",moderation->ignoredCalls.size(),moderation->ignoredMessages.size());if(!moderation->ignoredCalls.empty()||!moderation->ignoredMessages.empty()){std::string calls;for(const auto& call:moderation->ignoredCalls){if(!calls.empty())calls+=", ";calls+=call;}if(!calls.empty())ImGui::TextWrapped("%s",calls.c_str());for(const auto& message:moderation->ignoredMessages)ImGui::TextWrapped("\"%s\"",message.c_str());if(ImGui::Button("Unignore all")){engine_->unignoreAll();tableFilter_.excludeCall.clear();mapFilter_.excludeCall.clear();changed=true;}ImGui::TextWrapped("Unignore all allows future receptions; deleted records stay deleted.");}
-   ImGui::Separator();ImGui::TextUnformatted("Persistent reception CSV log");ImGui::TextWrapped("Clear and startup can reset views and session stats. Ignore transmitter, after confirmation, deletes that transmitter's saved receptions. Commas, quotes and line breaks are preserved.");
+   auto moderation=engine_->snapshot();ImGui::Separator();ImGui::Text("Ignored identities: %zu | messages: %zu",moderation->ignoredCalls.size(),moderation->ignoredMessages.size());if(!moderation->ignoredCalls.empty()||!moderation->ignoredMessages.empty()){std::string calls;for(const auto& call:moderation->ignoredCalls){if(!calls.empty())calls+=", ";calls+=call;}if(!calls.empty())ImGui::TextWrapped("%s",calls.c_str());for(const auto& message:moderation->ignoredMessages)ImGui::TextWrapped("\"%s\"",message.c_str());if(ImGui::Button("Unignore all")){engine_->unignoreAll();tableFilter_.excludeCall.clear();changed=true;}ImGui::TextWrapped("Unignore all allows future receptions; deleted records stay deleted.");}
+   ImGui::Separator();ImGui::TextUnformatted("Persistent reception CSV log");ImGui::TextWrapped("Clear and startup can reset views and session stats. Delete transmitter and Saved messages cleanups remove saved receptions after confirmation. Ignore alone keeps saved data. Commas, quotes and line breaks are preserved.");
    ImGui::SetNextItemWidth(std::max(150.f,ImGui::GetContentRegionAvail().x-70));if(ImGui::InputText("CSV file",csvPath_,sizeof(csvPath_),ImGuiInputTextFlags_EnterReturnsTrue)&&csvPath_[0]){csvLogPath_=csvPath_;changed=true;}
    if(ImGui::Button("Choose CSV file...")){if(auto path=dx::chooseCsvLog(csvLogPath_)){csvLogPath_=*path;std::snprintf(csvPath_,sizeof(csvPath_),"%s",path->c_str());changed=true;}}
    ImGui::TextDisabled("Press Enter to apply a typed path.");if(ImGui::InputInt("Maximum size (MB)",&csvMaxMb_)){csvMaxMb_=std::clamp(csvMaxMb_,1,4096);changed=true;}
-   ImGui::TextWrapped("When the size limit is reached, the log keeps complete recent records. Saved database history remains intact.");auto status=engine_->snapshot();ImGui::TextDisabled("CSV size: %.1f MB%s",status->csvBytes/(1024.*1024.),status->csvCatchingUp?" | catching up":"");if(!status->csvError.empty())ImGui::TextWrapped("CSV log: %s",status->csvError.c_str());
+   ImGui::TextWrapped("When the size limit is reached, the log keeps complete recent records. The database limit above is independent.");auto status=engine_->snapshot();ImGui::TextDisabled("CSV size: %.1f MB%s",status->csvBytes/(1024.*1024.),status->csvCatchingUp?" | catching up":"");if(!status->csvError.empty())ImGui::TextWrapped("CSV log: %s",status->csvError.c_str());
    ImGui::Separator();migration();
   }else if(settingsPage_==6){
    ImGui::TextUnformatted("GridTracker");changed|=ImGui::Checkbox("Send receptions to GridTracker",&gridTrackerEnabled_);ImGui::TextWrapped("Direct UDP feed; no helper app needed. Open GridTracker, then enable this switch. Starts off.");
@@ -98,8 +101,8 @@ void DXNotebook::settingsWindow() {
    if(status.enabled)ImGui::TextDisabled("UDP delivery is not acknowledged by every receiver.");
    ImGui::TextWrapped("Separate frequency and mode feeds keep bands correct. This sends reception messages; it does not log completed contacts or control transmission.");
    if(ImGui::Button("Restore local defaults")){gridTrackerEnabled_=false;gridTrackerHost_="127.0.0.1";std::snprintf(gridTrackerAddress_,sizeof(gridTrackerAddress_),"%s",gridTrackerHost_.c_str());gridTrackerPort_=2237;gridTrackerReplay_=true;gridTrackerMinutes_=30;changed=true;}
-  }
-  ImGui::PopItemWidth();ImGui::Spacing();ImGui::Separator();ImGui::TextDisabled("Changes save automatically.");
+  }else if(settingsPage_==7)savedMessagesSettings();
+  ImGui::PopItemWidth();ImGui::Spacing();ImGui::Separator();ImGui::TextDisabled(settingsPage_==7?"Cleanups run only after confirmation.":"Changes save automatically.");
   if(changed){tableQuery_.offset=0;save();refresh();}
   ImGui::EndChild();
  }

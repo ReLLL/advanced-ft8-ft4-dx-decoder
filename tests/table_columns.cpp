@@ -2,9 +2,12 @@
 #include "store.h"
 #include <algorithm>
 #include <iostream>
+#include <cstdlib>
+#include <ctime>
 #include <unistd.h>
 #define CHECK(x) do{if(!(x)){std::cerr<<"Failed "<<__LINE__<<": "<<#x<<'\n';return 1;}}while(0)
 int main(){
+ setenv("TZ","UTC",1);tzset();
  const int64_t midnight=1704067200;
  {dx::Store activity(":memory:");for(int seconds:{0,899,900,901,3600,-1}){dx::Decode d;d.utc=midnight-seconds;d.dial=7074000;d.mode="FT8";d.message="CQ K"+std::to_string(seconds+2)+"AAA FN42";CHECK(activity.insert(d,{39.5,33}));}
   for(auto visible:std::vector<dx::Query>{{},dx::Query{midnight-60,midnight},dx::Query{0,midnight-86400}}){
@@ -15,9 +18,11 @@ int main(){
  }
  CHECK(dx::ageText(midnight,midnight)=="0s ago"&&dx::ageText(midnight,midnight+1)=="1s ago");
  CHECK(dx::ageText(midnight,midnight+599)=="599s ago"&&dx::ageText(midnight,midnight+600)=="600s ago");
- CHECK(dx::ageText(midnight,midnight+601)=="2024-01-01 00:00:00 UTC");
- CHECK(dx::ageText(midnight-1,midnight+600)=="2023-12-31 23:59:59 UTC");
- CHECK(dx::ageText(midnight,midnight+86400)=="2024-01-01 00:00:00 UTC");
+ CHECK(dx::ageText(midnight,midnight+601)=="2024-01-01 00:00:00 +00:00");
+ CHECK(std::string(dx::ageLabel(midnight,midnight+600))=="Age"&&std::string(dx::ageLabel(midnight,midnight+601))=="Date");
+ CHECK(std::string(dx::ageLabel(midnight+10,midnight))=="Age"&&std::string(dx::ageLabel(0,midnight))=="Age");
+ CHECK(dx::ageText(midnight-1,midnight+600)=="2023-12-31 23:59:59 +00:00");
+ CHECK(dx::ageText(midnight,midnight+86400)=="2024-01-01 00:00:00 +00:00");
  CHECK(dx::ageText(midnight+10,midnight)=="0s ago"&&dx::ageText(0,midnight)=="--"&&dx::ageText(-1,midnight)=="--");
  {dx::Store mixed(":memory:");int sender=0;for(int seconds:{5,599,600,601,3600,86400}){dx::Decode d;d.utc=midnight-seconds;d.dial=7074000;d.mode="FT8";d.message="CQ K"+std::to_string(++sender)+"AAA FN42";CHECK(mixed.insert(d,{39.5,33}));}
   for(bool messages:{false,true})for(int sort:{0,16,17})for(bool descending:{false,true}){

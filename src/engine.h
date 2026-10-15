@@ -21,9 +21,11 @@ struct Snapshot {
  std::vector<Arrival> arrivals;int64_t newestReceptionUtc=0;ActivityBearing direction;std::vector<Decode> directionStations;
  std::string csvPath,csvError;uint64_t csvBytes=0;bool csvCatchingUp=false;
  GridTrackerState gridTracker;
- std::vector<std::string> ignoredCalls,ignoredMessages,csvPaths;bool moderating=false;
+ std::vector<std::string> ignoredCalls,ignoredMessages,csvPaths,savedCountries;bool moderating=false;
+ Json cleanupPreview=Json::object();uint64_t cleanupPreviewId=0,completedCleanup=0;int64_t cleanupMatches=0,cleanupThroughId=0,cleanupDeleted=0,savedMessages=0;bool cleanupBusy=false;std::string cleanupError;
  int64_t tableCount=0,mapCount=0,tableExcluded=0,mapExcluded=0;
- Json settings=Json::object();uint64_t generation=0;double queryMs=0;
+ Json settings=Json::object();uint64_t generation=0,completedModeration=0;double queryMs=0;
+ Store::RetentionState retention;std::string retentionError;uint64_t historyBytes=0,historyChecks=0;
  std::string error,notice,alert,alertTone;int64_t alertUtc=0;bool alertSound=false;size_t pendingWrites=0,queued=0;uint64_t skipped=0,failures=0,decodedJobs=0;
  double lastDecodeMs=0;int helperPid=-1;bool decoding=false;
 };
@@ -40,12 +42,15 @@ public:
  void alertContext(std::string bands,bool ft8,bool ft4);
  void home(Point point);
  void resetStats();
- void ignoreTransmitter(std::string call);void ignoreMessage(std::string message);void unignoreAll();
+ void ignoreTransmitter(std::string call,bool deleteRecords=false);void ignoreMessage(std::string message,bool deleteRecords=false);void unignoreAll();
+ uint64_t moderate(IgnoreTarget target,bool deleteRecords,bool ignoreFuture);
+ uint64_t previewCleanup(SavedCleanup criteria);uint64_t deleteSaved(SavedCleanup criteria,int64_t throughId);
  void gridTrackerContext(GridTrackerContext context);
  void hover(const Decode& station);
 private:
  void decodeLoop();void storeLoop();void importText(Store& store);void publish(Store& store);
  void hideIgnored(const IgnoreTarget& target);
+ bool manageSaved(Store& store);
  std::filesystem::path root_;Helper helper_;Point home_;
  std::function<std::pair<std::string,std::string>(const std::string&)> country_;
  mutable std::mutex mutex_;std::condition_variable cv_;std::thread decoder_,writer_;std::atomic<bool> stopping_{false};
@@ -54,8 +59,11 @@ private:
  std::optional<Decode> selection_;std::string selectionCountry_;int historyOffset_=0;bool selectionDirty_=false;
  std::optional<Decode> hovered_;
  Json pendingSettings_=Json::object();std::optional<std::tuple<Query,std::filesystem::path,bool>> export_;
- std::deque<IgnoreTarget> moderation_;
- Snapshot status_;std::string allTxt_;int64_t logPosition_=0;uint64_t logInode_=0;std::string logAnchor_;
+ struct Moderation {IgnoreTarget target;bool deleteRecords=false,ignoreFuture=true;uint64_t id=0;};
+ std::deque<Moderation> moderation_;uint64_t nextModeration_=0;
+ struct CleanupRequest {SavedCleanup criteria;int64_t throughId=0;uint64_t id=0;};
+ std::optional<CleanupRequest> cleanupPreview_;std::deque<CleanupRequest> cleanups_;uint64_t nextCleanup_=0;int64_t cleanupRetryAt_=0;
+ Snapshot status_;int64_t retentionAt_=0,retentionCheckAt_=0;bool retentionWorking_=false;std::string allTxt_;int64_t logPosition_=0;uint64_t logInode_=0;std::string logAnchor_;
  std::optional<Point> pendingHome_;
  bool pendingStatsReset_=false;int64_t statsAfterId_=0,statsSince_=0;double sessionSeconds_=0;
  CsvLog csv_;int64_t arrivalCursor_=0,startedAt_=0,startAfterId_=0;std::atomic<bool> decoderDone_{false};

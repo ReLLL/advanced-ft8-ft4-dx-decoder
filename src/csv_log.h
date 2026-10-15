@@ -9,9 +9,11 @@ public:
  bool sync(Store& store,const std::filesystem::path& path,uint64_t maximumBytes);
  int64_t purge(Store& store,const std::filesystem::path& path,const std::string& call,int64_t throughId);
  int64_t purge(Store& store,const std::filesystem::path& path,const IgnoreTarget& target,int64_t throughId);
+ int64_t purgeSaved(Store& store,const std::filesystem::path& path,const SavedCleanup& cleanup,int64_t throughId);
  uint64_t bytes()const{return bytes_;}
  int64_t cursor()const{return cursor_;}
 private:
+ int64_t purgeMatching(Store& store,const std::filesystem::path& path,int64_t throughId,const std::function<bool(const std::array<std::string,28>&)>& matches);
  void recover();void trim(uint64_t maximumBytes);
  std::filesystem::path path_;uint64_t bytes_=0;int64_t cursor_=0;bool ready_=false;
 };

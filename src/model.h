@@ -10,8 +10,14 @@
 namespace dx {
 // Age is presentation only; sorting/filtering always uses the original timestamp.
 std::string ageText(int64_t timestamp,int64_t referenceUtc);
+const char* ageLabel(int64_t timestamp,int64_t referenceUtc);
 std::array<float,4> snrMapColor(double snr);
 using Json=nlohmann::json;
+// Presentation and user-entered dates use the computer's time zone; stored epochs stay UTC.
+std::string localDateTime(int64_t timestamp,bool withZone=true);
+std::optional<int64_t> localDateTimeParse(const std::string& text,bool endOfDay=false);
+std::string restoredLocalDateTime(const Json& settings,const std::string& key);
+std::optional<int64_t> restoredDateTimeEpoch(const Json& settings,const std::string& key);
 struct Point {double lat=0,lon=0;};
 std::optional<Point> gridPoint(const std::string& grid);
 std::pair<double,double> distanceBearing(Point from,Point to);
@@ -64,11 +70,12 @@ struct Filter {
  bool accepts(const Row& row,int64_t referenceUtc)const;
  Json json() const; static Filter fromJson(const Json& j);
 };
-struct Query {int64_t since=0,until=INT64_MAX,afterRowId=0,firstSince=0,firstAfterId=0,referenceUtc=0;Filter filter;int sort=0;bool descending=true;bool messages=false,uniqueCalls=false,countries=false;int pathCount=3,offset=0;};
+struct Query {int64_t since=0,until=INT64_MAX,afterRowId=0,firstSince=0,firstAfterId=0,referenceUtc=0;Filter filter;int sort=0;bool descending=true;bool messages=false,uniqueCalls=false,countries=false;int pathCount=3,offset=0;std::optional<std::pair<double,double>> pathSpectrum;};
 inline constexpr int activityWindowMinutes=15;
 Query recentActivityQuery(const Query& view,int64_t referenceUtc);
 struct Row {Decode decode;int64_t count=1,firstHeardUtc=0,stationFirstHeardUtc=0;};
-struct ExchangePath{std::string transmitter,called;int64_t utc=0,fromGridUtc=0,toGridUtc=0;std::vector<Point> points;};
+struct ExchangePath{std::string transmitter,called;int64_t utc=0,fromGridUtc=0,toGridUtc=0;std::vector<Point> points;int64_t frequency=0;};
+bool frequencyVisible(int64_t frequency,std::pair<double,double> spectrum);
 struct Stats {int64_t countries=0,stations=0,recentStations=0,messages=0;double farthest=0,activeSeconds=0;std::string farthestCountry,farthestCall;std::vector<Decode> latest,latestCountries;std::optional<Decode> farthestReception;std::vector<std::string> heardCountries,newestCountries;bool isNewestCountry(const std::string& country)const;};
 std::string bandName(int64_t hz);
 struct Job {uint64_t id=0;int64_t utcMs=0,dial=0,deadlineMs=0;std::string mode,source="live";std::vector<int16_t> pcm;int retry=0;};

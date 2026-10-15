@@ -118,7 +118,13 @@ int main(){
   for(int i=0;i<110;i++)CHECK(insert(100+i,"CQ W1ABC FN31"));CHECK(store.exchangePaths(q).size()==2);
   CHECK(insert(220,"N2ABC N1ABC -10"));CHECK(store.exchangePaths(q).size()==2);
   CHECK(insert(230,"CQ N1ABC EM10")&&insert(240,"CQ N2ABC JO89"));paths=store.exchangePaths(q);CHECK(paths.size()==3&&paths[0].transmitter=="N1ABC"&&paths[0].called=="N2ABC");
-  q.pathCount=1;CHECK(store.exchangePaths(q).size()==1);q.pathCount=0;CHECK(store.exchangePaths(q).empty());q.pathCount=3;q.filter.messageKind=dx::MessageKind::GeneralCall;CHECK(store.exchangePaths(q).empty());q.filter={};q.since=1800000301;CHECK(store.exchangePaths(q).empty());
+  q.pathCount=1;CHECK(store.exchangePaths(q).size()==1);q.pathCount=0;CHECK(store.exchangePaths(q).empty());q.pathCount=3;q.filter.messageKind=dx::MessageKind::GeneralCall;CHECK(store.exchangePaths(q).empty());q.filter={};
+  // Switching and zooming the host spectrum gates arcs without filtering stored markers.
+  auto otherBand=d;otherBand.utc=1800000009;otherBand.dial=14074000;otherBand.audio=1200;otherBand.message="K2ABC K1ABC -10";CHECK(store.insert(otherBand,home));
+  q.pathCount=1;q.pathSpectrum=std::make_pair(14075000.,14077000.);paths=store.exchangePaths(q);CHECK(paths.size()==1&&paths[0].frequency==14075200&&paths[0].utc==otherBand.utc);
+  CHECK(dx::frequencyVisible(paths[0].frequency,*q.pathSpectrum));q.pathSpectrum=std::make_pair(14076000.,14077000.);CHECK(store.exchangePaths(q).empty());
+  q.pathSpectrum=std::make_pair(7070000.,7080000.);paths=store.exchangePaths(q);CHECK(paths.size()==1&&paths[0].frequency!=14075200);q.pathSpectrum=std::make_pair(5000000.,6000000.);CHECK(store.exchangePaths(q).empty());
+  CHECK(!dx::frequencyVisible(14075200,{NAN,14077000})&&!dx::frequencyVisible(14075200,{14077000,14075000}));q.pathSpectrum.reset();q.since=1800000301;CHECK(store.exchangePaths(q).empty());
  }
  std::filesystem::remove(exchangePath);std::filesystem::remove(exchangePath.string()+"-wal");std::filesystem::remove(exchangePath.string()+"-shm");
  auto firstHeardPath=std::filesystem::temp_directory_path()/("dx-first-heard-"+std::to_string(getpid())+".sqlite3");{
@@ -133,11 +139,11 @@ int main(){
   q.sort=16;q.descending=false;CHECK(store.rows(q).front().firstHeardUtc==first.utc);q.descending=true;CHECK(store.rows(q,1,1).front().firstHeardUtc==changed.utc);
   q={};q.since=repeat.utc;CHECK(store.rows(q).front().firstHeardUtc==first.utc&&store.rows(q).front().stationFirstHeardUtc==first.utc);
   q.firstSince=repeat.utc;CHECK(store.rows(q).front().firstHeardUtc==repeat.utc&&store.rows(q).front().stationFirstHeardUtc==repeat.utc);
-  auto baseline=store.lastReceptionId();auto sameSlot=repeat;sameSlot.audio++;CHECK(store.insert(sameSlot,home));q={};q.afterRowId=baseline;CHECK(store.rows(q).front().firstHeardUtc==first.utc&&store.rows(q).front().stationFirstHeardUtc==first.utc);
+  auto baseline=store.lastReceptionId();auto sameSlot=repeat;sameSlot.audio++;sameSlot.snr=5;CHECK(store.insert(sameSlot,home));q={};q.afterRowId=baseline;CHECK(store.rows(q).front().firstHeardUtc==first.utc&&store.rows(q).front().stationFirstHeardUtc==first.utc);
   q.firstAfterId=baseline;CHECK(store.rows(q).front().firstHeardUtc==sameSlot.utc&&store.rows(q).front().stationFirstHeardUtc==sameSlot.utc);
   auto otherBand=first;otherBand.dial+=7000000;otherBand.utc+=75;CHECK(store.insert(otherBand,home));auto otherMode=first;otherMode.mode="FT4";otherMode.utc+=90;CHECK(store.insert(otherMode,home));q={};rows=store.rows(q);CHECK(rows.size()==3);for(const auto& row:rows)CHECK(row.firstHeardUtc==first.utc&&row.stationFirstHeardUtc==first.utc);
   q.uniqueCalls=true;CHECK(store.rows(q).front().firstHeardUtc==first.utc);q={};int64_t count=0;store.rows(q,0,0,&count);CHECK(count==3);
-  auto unique=store.uniqueMessages(first,q);CHECK(unique.size()==2&&unique[0].message==first.message&&unique[0].utc==sameSlot.utc&&unique[1].message==changed.message&&unique[1].utc==changedRepeat.utc);
+  auto unique=store.uniqueMessages(first,q);CHECK(unique.size()==2&&unique[0].message==first.message&&unique[0].utc==sameSlot.utc&&unique[0].snr==sameSlot.snr&&unique[0].audio==sameSlot.audio&&unique[1].message==changed.message&&unique[1].utc==changedRepeat.utc&&unique[1].snr==changedRepeat.snr);
   for(int i=0;i<6;i++){auto report=first;report.utc+=120+i*15;report.message="K2ABC K1ABC -"+std::to_string(20+i);CHECK(store.insert(report,home));}unique=store.uniqueMessages(first,q);CHECK(unique.size()==5&&unique.front().message=="K2ABC K1ABC -25"&&unique.back().message=="K2ABC K1ABC -21");q.since=unique.front().utc;CHECK(store.uniqueMessages(first,q).size()==1);q.since++;CHECK(store.uniqueMessages(first,q).empty());
  }
  {dx::Store store(firstHeardPath);dx::Query q;CHECK(store.rows(q).back().firstHeardUtc==1800000000&&store.rows(q).front().stationFirstHeardUtc==1800000000);}

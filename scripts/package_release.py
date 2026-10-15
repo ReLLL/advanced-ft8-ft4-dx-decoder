@@ -13,7 +13,7 @@ import time
 from build_installer import build_installer, sign
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_FILES = ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "CMakeLists.txt", ".gitignore")
+PUBLIC_FILES = ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "CMakeLists.txt", ".gitignore", "AGENTS.md")
 SOURCE_DIRS = ("src", "scripts", "tests", "docs", "installer", "third_party/earcut")
 
 

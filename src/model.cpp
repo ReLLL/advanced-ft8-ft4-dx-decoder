@@ -7,14 +7,14 @@
 #include <ctime>
 #include <fnmatch.h>
 namespace dx {
+bool frequencyVisible(int64_t frequency,std::pair<double,double> spectrum){return frequency>0&&std::isfinite(spectrum.first)&&std::isfinite(spectrum.second)&&spectrum.first<=spectrum.second&&frequency>=spectrum.first&&frequency<=spectrum.second;}
+const char* ageLabel(int64_t timestamp,int64_t referenceUtc){return timestamp>0&&referenceUtc>timestamp&&referenceUtc-timestamp>600?"Date":"Age";}
 std::string ageText(int64_t timestamp,int64_t referenceUtc){
  if(timestamp<=0)return "--";
  if(referenceUtc<=timestamp)return "0s ago";
  const auto seconds=referenceUtc-timestamp;
  if(seconds<=600)return std::to_string(seconds)+"s ago";
- time_t epoch=timestamp;tm date{};if(!gmtime_r(&epoch,&date))return "--";
- char stamp[32];if(!std::strftime(stamp,sizeof(stamp),"%Y-%m-%d %H:%M:%S UTC",&date))return "--";
- return stamp;
+ return localDateTime(timestamp);
 }
 std::array<float,4> snrMapColor(double snr){
  if(!std::isfinite(snr))return {.62f,.67f,.70f,1};

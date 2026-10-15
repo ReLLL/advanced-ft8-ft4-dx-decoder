@@ -1,11 +1,12 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "helper_client.h"
 #include "engine.h"
+#include "temporary_folder.h"
 #include <iostream>
 #include <unistd.h>
 #include <thread>
 #define CHECK(x) do{if(!(x)){std::cerr<<"Failed "<<__LINE__<<": "<<#x<<'\n';return 1;}}while(0)
-int main(int argc,char** argv){if(argc!=2)return 2;auto mock=std::filesystem::absolute(argv[1]);auto pattern=(std::filesystem::temp_directory_path()/"dx-recovery-XXXXXX").string();if(!mkdtemp(pattern.data()))return 2;std::filesystem::path folder=pattern;for(auto suffix:{"crash","hang","stale","valid","valid_small"})std::filesystem::create_symlink(mock,folder/(std::string("dx_mock_")+suffix));
+int main(int argc,char** argv){if(argc!=2)return 2;auto mock=std::filesystem::absolute(argv[1]);auto pattern=(std::filesystem::temp_directory_path()/"dx-recovery-XXXXXX").string();if(!mkdtemp(pattern.data()))return 2;std::filesystem::path folder=pattern;TestFolderCleanup cleanup(folder);for(auto suffix:{"crash","hang","stale","valid","valid_small"})std::filesystem::create_symlink(mock,folder/(std::string("dx_mock_")+suffix));
  dx::Job job;job.id=1;job.mode="FT8";job.utcMs=1800000000000;job.pcm.resize(180000);std::atomic<bool> stopping{false};
  for(auto suffix:{"crash","stale","hang"}){dx::Helper helper(folder/(std::string("dx_mock_")+suffix));auto start=dx::monotonicMs();bool failed=false;try{helper.decode(job,stopping);}catch(const std::exception&){failed=true;}CHECK(failed&&helper.pid()==-1);if(std::string(suffix)=="hang")CHECK(dx::monotonicMs()-start>=20000&&dx::monotonicMs()-start<21500);}
  {dx::Helper helper(folder/"dx_mock_hang");auto start=dx::monotonicMs();std::thread cancel([&]{std::this_thread::sleep_for(std::chrono::milliseconds(250));stopping=true;});bool failed=false;try{helper.decode(job,stopping);}catch(const std::exception&){failed=true;}cancel.join();CHECK(failed&&dx::monotonicMs()-start<1000);}
@@ -31,7 +32,7 @@ int main(int argc,char** argv){if(argc!=2)return 2;auto mock=std::filesystem::ab
   dx::Query filtered;filtered.filter.call="K1ABC";engine.query(filtered,filtered,2);CHECK(waitFor([](const dx::Snapshot& s){return s.generation==2&&s.historyAll&&s.tableCount==1&&s.mapCount==1&&s.stats.messages==1203;}));
   dx::Query sessionView;sessionView.since=job.utcMs/1000;engine.query(sessionView,sessionView,3);engine.settings({{"history_all",false}});CHECK(waitFor([](const dx::Snapshot& s){return s.generation==3&&!s.historyAll&&!s.statsHistory&&s.stats.messages==3&&s.tableCount==3&&s.mapCount==3;}));
   engine.active(false);engine.resetStats();CHECK(waitFor([](const dx::Snapshot& s){return s.stats.messages==0&&s.stats.activeSeconds==0;}));CHECK(engine.snapshot()->newestReceptionUtc==0&&engine.snapshot()->stats.newestCountries.empty()&&engine.snapshot()->cornerReceptions.empty());
-  engine.settings({{"history_all",true}});CHECK(waitFor([](const dx::Snapshot& s){return s.historyAll&&s.mapCount==1200&&s.stats.messages==1203;}));
+  engine.query(dx::Query{},dx::Query{},5);engine.settings({{"history_all",true}});CHECK(waitFor([](const dx::Snapshot& s){return s.historyAll&&s.mapCount==1200&&s.stats.messages==1203;}));
  }
  {dx::Engine engine(folder/"drain",folder/"dx_mock_valid_small",{39,33},[](const std::string&){return std::make_pair("Test Country","NA");});auto start=dx::monotonicMs();while(engine.snapshot()->generation==0&&dx::monotonicMs()-start<9000)std::this_thread::sleep_for(std::chrono::milliseconds(10));auto loaded=engine.snapshot();CHECK(loaded->historyAll&&loaded->statsHistory&&loaded->mapCount==1200&&loaded->tableCount==1200&&loaded->stats.messages==1203&&loaded->stats.activeSeconds==0);
   engine.settings({{"history_all",false}});start=dx::monotonicMs();while(engine.snapshot()->historyAll&&dx::monotonicMs()-start<9000)std::this_thread::sleep_for(std::chrono::milliseconds(10));auto fresh=engine.snapshot();CHECK(!fresh->historyAll&&!fresh->statsHistory&&fresh->table.empty()&&fresh->map.empty()&&fresh->stats.messages==0);

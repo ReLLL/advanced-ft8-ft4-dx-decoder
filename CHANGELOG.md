@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.0.32
+
+- Enable Color based on SNR by default for new or unset preferences. The checkbox remains optional and saves the selected preference.
+
+## 1.0.31
+
+- Check history size and count every 30 minutes, at startup and on policy changes. Default to 100,000 receptions and gradually trim to 95,000; custom limits retain 95%. Reception and CSV protection remain unchanged.
+
+## 1.0.30
+
+- Maintain latest sender/country summaries transactionally and reuse session statistics between arrivals. Read the latest messages through the time index.
+- Limit SQLite history to 50,000 receptions by default, with resumable background deletion to 90% of the limit. Settings shows the retained date range and supports changing or disabling the limit. CSV rotation remains separate.
+- Check the stored count and database size once a minute, at startup and on a policy change. Run short cleanup batches during continuous decoding, protect the CSV watermark, and update long-session stats incrementally as records expire.
+- Preserve reception IDs, CSV catch-up boundaries and later arrivals during automatic cleanup. Reuse freed pages and use incremental compaction where enabled.
+- Add isolated large-history benchmarks and regression coverage for cleanup rollback, restart, summaries and ID continuity.
+
+## 1.0.29
+
+- Extend sender and target callsign-hash matching from three minutes to twelve minutes. Accept only one distinct matching callsign; retain unresolved identifiers when candidates are missing or ambiguous. Exclude future receptions and candidates older than twelve minutes.
+- Add isolated tests for the twelve-minute boundary, all three hash sizes, sender/target matching, collisions and expiry. All displayed station distances continue to use the receiver's home grid, independently of station-to-station communication arcs.
+
+## 1.0.28
+
+- Combine time, band, mode, message type, search and advanced filters in one responsive bar for the map and all table tabs. Retain the previous table selection on upgrade; wrap controls only when necessary and add Reset for both views.
+- Limit exchange arcs to the host's visible RF spectrum, including zoom and pan. Hide stale arcs immediately when the viewport changes and choose recent exchanges from the new range.
+- Show each map-tooltip message's receiver SNR after its text. Color time and message separately, and use the continuous red/yellow/green signal scale for SNR in map message history and details.
+- Add a horizontal splitter above details and remember its height independently of the map/table split.
+- Add the compass direction after the degree bearing in station details, using the short-path bearing from the home location.
+- Add a compact compass beside DX ACTIVITY BEARING within the existing two-row statistic height. Its red/white needle follows the estimated bearing; mixed or unknown directions show no needle.
+- Display reception dates in the computer's time zone throughout tables, details, map tooltips and copied rows. Include the UTC offset; elapsed ages and chronological sorting keep their original behavior.
+- Interpret custom filters and saved-message cleanup dates as local times. Respect 23-hour and 25-hour calendar days; reject invalid or ambiguous clock-change times before cleanup.
+- Preserve existing custom-range instants when upgrading or changing the computer's time zone. Add local date/time to CSV exports; keep reception log timestamps and GridTracker messages in UTC.
+
+## 1.0.27
+
+- Separate Ignore transmitter and Delete transmitter in every station context menu. Each confirmation offers one unchecked checkbox for the other operation. Ignore alone keeps saved receptions; Delete alone permits future receptions.
+- Add Settings > Saved messages with independent, confirmed, one-off cleanup actions: before/after/between UTC dates, selected country, keep only selected country, missing distance, and missing grid. Preview database matches asynchronously; clean known CSV logs and SQLite, update views/statistics and retain receptions added after the preview.
+- Compact SQLite after deletion in the background. Migrate reception IDs to an explicit integer primary key before VACUUM; preserve CSV/import watermarks and resume failed log cleanup after restart.
+- Enable time-window selection with saved history, add clearly named Last hour/6 hours/24 hours/7 days/month presets and an All button to cancel the time filter independently in each view. Last month means a rolling 30 days.
+- Use Date in map tooltips for UTC timestamps and Age for seconds ago.
+- Require isolated test profiles and removal of test receptions after testing in project instructions; clean owned test files when test engines close.
+
 ## 1.0.26
 
 - Show ages through 600 seconds as seconds followed by ago; older values show UTC date/time. Apply the same formatter to Unique stations, All messages, Countries heard and map age tooltips. Keep timestamp sorting and numeric age filters unchanged.
