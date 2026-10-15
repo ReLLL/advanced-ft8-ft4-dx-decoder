@@ -27,6 +27,9 @@ public:
   auto text=reason+": "+candidate->identity.transmitter;if(candidate->km)text+=" "+distanceSummary(*candidate->km,policy.miles);auto tone=alertTone(policy.sounds,kind);return Alert{text,policy.sound&&tone!="None",candidate->utc,tone};
  }
  void suppressBefore(int64_t utc){watermark_=utc;}
+ // Seed from the same saved/session scope as the top Farthest statistic,
+ // independently of the narrower alert filters and latest-message grids.
+ void distanceBaseline(double km){farthest_=km;}
 private:
  double farthest_=0;std::set<std::string> countries_,grids_;int64_t watermark_=0,lastAlert_=0;
 };

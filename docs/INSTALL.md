@@ -7,7 +7,7 @@ Read when: installing, upgrading, removing or restoring the plugin.
 Requirements: Apple Silicon and macOS 15+, with **SDR++** at `/Applications/SDR++.app` or **SDR++Brown** at `/Applications/SDR++Brown.app`. The installer does not restrict installation by version number or an exact core-library fingerprint. It checks the selected application and the libraries required by its plugin build. Standard SDR++ does not require Brown. Python, Homebrew and developer tools are not required for the native installer. Testing used SDR++ 1.2.0 and SDR++Brown 1.2.1 on macOS 26.
 
 1. Install either supported radio application in Applications.
-2. Open the release DMG, or extract the ZIP, and open **Install Advanced FT8-FT4 DX Decoder**.
+2. Open the release DMG, or extract the ZIP, and open **Install Advanced FT8-FT4-WSPR DX Decoder**.
 3. The installer detects an installed host. If both are installed, select **SDR++** or **SDR++Brown**. An existing **Home locator** is prefilled. With an empty field, macOS Location Services can suggest one after permission. Check the location estimate before installing, or click **Find grid on map**. It can also be set later.
 4. Click **Install**. Missing first-run host settings are prepared automatically. A running host is asked to quit normally; the installer waits for its settings and never force-quits it.
 5. Click **Open SDR++** or **Open SDR++Brown**, then open the plugin from the sidebar.

@@ -1,4 +1,4 @@
-"""Install Advanced FT8/FT4 DX Decoder outside the host's signed app, with reversible backups."""
+"""Install Advanced FT8/FT4/WSPR DX Decoder outside the host's signed app, with reversible backups."""
 import argparse
 import datetime
 import hashlib
@@ -12,7 +12,8 @@ from mode_payload import mode_files, NATIVE_BINARIES
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ("dx_notebook.dylib", "dx_decoder", "world.geojson")
-INSTANCE_NAME = "Advanced FT8/FT4 DX Decoder"
+INSTANCE_NAME = "Advanced FT8/FT4/WSPR DX Decoder"
+PREVIOUS_NAMES = ("Advanced FT8/FT4 DX Decoder", "DX Notebook")
 MODULE_NAME = "advanced_ft8_ft4_dx_decoder"
 
 
@@ -21,10 +22,11 @@ def install(build, profile, host="brown"):
     data = json.loads(config.read_text())
     instances = data.setdefault("moduleInstances", {})
     existing = instances.get(INSTANCE_NAME)
-    legacy = instances.get("DX Notebook")
+    previous = [instances[name] for name in PREVIOUS_NAMES if name in instances]
+    legacy = next(iter(previous), None)
     if existing and existing.get("module") not in (MODULE_NAME, "dx_notebook"):
-        raise ValueError("Advanced FT8/FT4 DX Decoder name belongs to another module")
-    if legacy and legacy.get("module") != "dx_notebook":
+        raise ValueError("Advanced FT8/FT4/WSPR DX Decoder name belongs to another module")
+    if any(value.get("module") not in (MODULE_NAME, "dx_notebook") for value in previous):
         raise ValueError("Legacy DX Notebook name belongs to another module")
     target = profile / "plugins/dx-notebook"
     sources = {"dx_notebook.dylib": build / "dx_notebook.dylib",
@@ -43,10 +45,11 @@ def install(build, profile, host="brown"):
         modules.append(plugin)
     instances[INSTANCE_NAME] = dict(existing or legacy or {})
     instances[INSTANCE_NAME].update({"module": MODULE_NAME, "enabled": (existing or legacy or {}).get("enabled", True)})
-    instances.pop("DX Notebook", None)
+    for name in PREVIOUS_NAMES:
+        instances.pop(name, None)
     menu = data.setdefault("menuElements", [])
     for item in menu:
-        if item.get("name") == "DX Notebook":
+        if item.get("name") in PREVIOUS_NAMES:
             item["name"] = INSTANCE_NAME
     seen = False
     renamed_menu = []

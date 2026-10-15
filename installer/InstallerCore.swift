@@ -25,7 +25,8 @@ struct InstallReceipt {
 }
 
 struct PluginInstaller {
-    static let instance = "Advanced FT8/FT4 DX Decoder"
+    static let instance = "Advanced FT8/FT4/WSPR DX Decoder"
+    static let previousNames = ["Advanced FT8/FT4 DX Decoder", "DX Notebook"]
     static let module = "advanced_ft8_ft4_dx_decoder"
     static let names = ["dx_notebook.dylib", "dx_decoder", "world.geojson"]
     static let modeNames = ["dx_modes_decoder", "dx_wspr_decoder", "libgfortran.5.dylib", "libquadmath.0.dylib", "libgcc_s.1.1.dylib", "COPYING.RUNTIME", "COPYING.LIB", "mode-runtime.json"]
@@ -99,11 +100,12 @@ struct PluginInstaller {
         }
         var instances = data["moduleInstances"] as? [String: [String: Any]] ?? [:]
         let existing = instances[Self.instance]
-        let legacy = instances["DX Notebook"]
+        let previous = Self.previousNames.compactMap { instances[$0] }
+        let legacy = previous.first
         if let value = existing, ![Self.module, "dx_notebook"].contains(value["module"] as? String ?? "") {
             throw InstallError.message("The plugin name is already used by another module. Nothing was changed.")
         }
-        if let value = legacy, value["module"] as? String != "dx_notebook" {
+        if previous.contains(where: { ![Self.module, "dx_notebook"].contains($0["module"] as? String ?? "") }) {
             throw InstallError.message("The old plugin name is used by another module. Nothing was changed.")
         }
         var modules = data["modules"] as? [String] ?? []
@@ -114,11 +116,11 @@ struct PluginInstaller {
         instance["module"] = Self.module
         instance["enabled"] = instance["enabled"] as? Bool ?? true
         instances[Self.instance] = instance
-        instances.removeValue(forKey: "DX Notebook")
+        for name in Self.previousNames { instances.removeValue(forKey: name) }
         var seen = false
         var menu: [[String: Any]] = []
         for var item in data["menuElements"] as? [[String: Any]] ?? [] {
-            if item["name"] as? String == "DX Notebook" { item["name"] = Self.instance }
+            if Self.previousNames.contains(item["name"] as? String ?? "") { item["name"] = Self.instance }
             if item["name"] as? String == Self.instance {
                 if seen { continue }; seen = true
             }

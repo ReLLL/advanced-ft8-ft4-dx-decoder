@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.0.39 (2026-10-15)
+
+This release includes the development changes from 1.0.33 through 1.0.38 below.
+
+- Apply Remove likely falses to existing entries and new arrivals in reception statistics, Latest heard, country highlights, waterfall notifications and distance-record alerts, as well as map and table queries. Keep uptime as elapsed receiver time and preserve saved records. Update filtered summaries incrementally in the background, including retention cleanup.
+- Limit the Latest heard bar to three stations. Make the SNR scale taller and reduce status bar padding while keeping its geometry fixed during notifications.
+
+## 1.0.38 (unreleased development)
+
+- Ensure Restore defaults resets existing table column widths and layouts before table initialization, including layouts saved for tabs not yet opened. Keep the Default sorting action limited to sorting.
+
+## 1.0.37 (unreleased development)
+
+- Rename the plugin to Advanced FT8/FT4/WSPR DX Decoder. Migrate existing sidebar entries while keeping settings and reception history.
+- Move operation notices, errors and extra decoder queue activity into a fixed bottom status bar. Notifications fade in for two seconds, remain visible for four, then fade out for two; errors stay visible until resolved.
+- Place the compact SNR label and continuous color scale immediately after Fit on the map toolbar.
+- Keep Color based on SNR in Settings > Map only, enabled by default.
+- Default alert coverage to All bands, preserving explicit saved choices.
+- Nest History DB beneath History in settings. Group viewing, CSV and export preferences under History; show database size, automatic retention and confirmed one-off cleanups under History DB. Allow separate cleanup trigger and retained-record counts, defaulting to 100,000 and 95,000.
+- Prefix the farthest station's gold distance with the trophy emoji and a space in station/message tables; keep numeric sorting and right alignment.
+- Add Default sorting beside Clear for each table tab, restoring its newest-first order while keeping filters and column layout.
+- Extend received-grid caching to seven days without refreshing evidence from nongrid messages. Show a station's older last-known received grid with a hollow map marker and its original grid date; keep that display fallback separate from reception payloads, distance records and exchange paths.
+- Add the remembered, default-off Remove likely falses filter. Compare grid cells with the callsign country's Natural Earth outlines, allowing 300 km plus grid uncertainty by default. Keep unknown locations and explicit portable calls; preserve saved records and ignore rules. Explain legitimate portable/remote exceptions in its tooltip.
+- Add a fixed Settings footer with Restore defaults and confirmation. Reset plugin preferences and layouts while preserving home setup, reception payloads and moderation rules; explain that normal retention limits apply afterward.
+- Compare distance-record alerts with the same saved-history or session scope as the Farthest statistic. Latest messages using cached grids no longer erase farther receptions from the alert baseline.
+
+## 1.0.36 (unreleased development)
+
+- Place WSPR beside FT4 in the main reception controls. Default FT8, FT4 and WSPR to on, while remembering each saved preference.
+
+## 1.0.35 (unreleased development)
+
+- Show the total saved reception count and main SQLite file size in MB at the top of Saved messages. Refresh file metadata in the background, independently of the 30-minute automatic cleanup check.
+
+## 1.0.34 (unreleased development)
+
+- Add Sequence: All as the default for additional modes. Capture every supported period in parallel using shared audio blocks; retain individual period choices. Keep Q65 tone spacing explicit.
+- Bound additional work to 32 pending jobs and 96 MiB of unique queued audio, with deadline ordering and a separate FT8/FT4 worker.
+- Select table stations with a click or Up/Down and highlight them on the map. Open details on a table double-click or map click; closing details preserves selection.
+
 ## 1.0.33 (unreleased development)
 
 - Add optional WSPR, FST4, FST4W and Q65 reception using pinned official WSJT-X decoder sources, with mode-specific periods and Q65 tone spacing in Reception settings. New modes start off; FT8/FT4 keep their existing controls and decoder.

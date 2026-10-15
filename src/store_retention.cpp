@@ -38,19 +38,20 @@ void Store::ensureEntities(){
  }catch(...){exec("ROLLBACK");throw;}
 }
 Store::RetentionState Store::retentionState(){
- RetentionState out;auto ui=getSetting("ui",Json::object());out.enabled=ui.value("history_auto_trim",true);out.limit=std::clamp(ui.value("history_max_records",int64_t(defaultHistoryLimit)),int64_t(10000),int64_t(1000000));out.deleted=getSetting("retention_deleted",int64_t(0)).get<int64_t>();out.running=out.enabled&&!getSetting("retention_job",Json::object()).empty();
+ RetentionState out;auto ui=getSetting("ui",Json::object());out.enabled=ui.value("history_auto_trim",true);out.limit=std::clamp(ui.value("history_max_records",int64_t(defaultHistoryLimit)),int64_t(10000),int64_t(1000000));out.target=historyCleanupTarget(out.limit,ui.value("history_trim_to",int64_t(0)));out.deleted=getSetting("retention_deleted",int64_t(0)).get<int64_t>();out.running=out.enabled&&!getSetting("retention_job",Json::object()).empty();
  auto s=prepare(db_,"SELECT (SELECT utc FROM decodes ORDER BY utc LIMIT 1),(SELECT utc FROM decodes ORDER BY utc DESC LIMIT 1)");if(step(db_,s.get())==SQLITE_ROW){out.firstUtc=sqlite3_column_int64(s.get(),0);out.lastUtc=sqlite3_column_int64(s.get(),1);}return out;
 }
-int64_t Store::retain(int64_t limit,int batch,int64_t syncedThrough){
+int64_t Store::retain(int64_t limit,int batch,int64_t syncedThrough,int64_t trimTo){
  if(limit<1||batch<1||batch>256)throw std::runtime_error("Invalid retention limit");
- auto job=getSetting("retention_job",Json::object());auto count=savedMessageCount();
- if(job.empty()){if(count<=limit)return 0;job={{"remaining",count-historyCleanupTarget(limit)},{"through",lastReceptionId()},{"limit",limit}};}
- if(job.value("limit",int64_t(0))!=limit){setSetting("retention_job",Json::object());return 0;}
- auto remaining=std::min(job.at("remaining").get<int64_t>(),std::max<int64_t>(0,count-historyCleanupTarget(limit)));if(!remaining){setSetting("retention_job",Json::object());return 0;}auto through=std::min(job.at("through").get<int64_t>(),syncedThrough);
+ const auto target=historyCleanupTarget(limit,trimTo);auto job=getSetting("retention_job",Json::object());auto count=savedMessageCount();
+ if(!job.empty()&&job.value("limit",int64_t(0))!=limit){job=Json::object();setSetting("retention_job",job);}
+ if(job.empty()){if(count<=limit)return 0;job={{"remaining",count-target},{"through",lastReceptionId()},{"limit",limit},{"target",target}};}
+ if(job.value("target",historyCleanupTarget(limit))!=target){job["target"]=target;job["remaining"]=std::max<int64_t>(0,count-target);}
+ auto remaining=std::min(job.at("remaining").get<int64_t>(),std::max<int64_t>(0,count-target));if(!remaining){setSetting("retention_job",Json::object());return 0;}auto through=std::min(job.at("through").get<int64_t>(),syncedThrough);
  std::vector<std::pair<int64_t,Decode>> expired;exec("BEGIN IMMEDIATE");int64_t removed=0;try{
   auto read=prepare(db_,"SELECT reception_id,call,dial,mode,country,grid,utc,payload FROM decodes INDEXED BY by_time WHERE reception_id<=? ORDER BY utc,reception_id LIMIT ?");sqlite3_bind_int64(read.get(),1,through);sqlite3_bind_int64(read.get(),2,std::min<int64_t>(batch,remaining));
   std::vector<int64_t> ids;std::map<std::tuple<std::string,int64_t,std::string>,int64_t> stations;std::set<std::pair<std::string,std::string>> heard;int64_t floor=0;
-  while(step(db_,read.get())==SQLITE_ROW){auto id=sqlite3_column_int64(read.get(),0);ids.push_back(id);if(sessionAfter_>=0&&id>sessionAfter_&&id<=sessionCursor_){auto d=Decode::fromJson(Json::parse(text(read.get(),7)));if(d.source!="legacy"||d.utc>=sessionSince_)expired.emplace_back(id,std::move(d));}++stations[{text(read.get(),1),sqlite3_column_int64(read.get(),2),text(read.get(),3)}];heard.emplace("call",text(read.get(),1));heard.emplace("country",text(read.get(),4));heard.emplace("grid",text(read.get(),5));floor=std::max(floor,sqlite3_column_int64(read.get(),6));}read.reset();
+  while(step(db_,read.get())==SQLITE_ROW){auto id=sqlite3_column_int64(read.get(),0);ids.push_back(id);if(sessionCache_.after>=0||historyCache_.after>=0)expired.emplace_back(id,Decode::fromJson(Json::parse(text(read.get(),7))));++stations[{text(read.get(),1),sqlite3_column_int64(read.get(),2),text(read.get(),3)}];heard.emplace("call",text(read.get(),1));heard.emplace("country",text(read.get(),4));heard.emplace("grid",text(read.get(),5));floor=std::max(floor,sqlite3_column_int64(read.get(),6));}read.reset();
   auto erase=prepare(db_,"DELETE FROM decodes WHERE reception_id=?");for(auto id:ids){sqlite3_reset(erase.get());sqlite3_bind_int64(erase.get(),1,id);step(db_,erase.get());removed+=sqlite3_changes(db_);}
   for(const auto& [station,total]:stations){const auto& [call,dial,mode]=station;if(call.empty())continue;auto update=prepare(db_,"UPDATE stations SET utc=coalesce((SELECT utc FROM decodes WHERE call=? AND dial=? AND mode=? ORDER BY utc DESC,reception_id DESC LIMIT 1),utc),payload=coalesce((SELECT payload FROM decodes WHERE call=? AND dial=? AND mode=? ORDER BY utc DESC,reception_id DESC LIMIT 1),payload),count=count-? WHERE call=? AND dial=? AND mode=?");for(int i=0;i<2;i++){bind(update.get(),i*3+1,call);sqlite3_bind_int64(update.get(),i*3+2,dial);bind(update.get(),i*3+3,mode);}sqlite3_bind_int64(update.get(),7,total);bind(update.get(),8,call);sqlite3_bind_int64(update.get(),9,dial);bind(update.get(),10,mode);step(db_,update.get());}
   exec("DELETE FROM stations WHERE count=0");

@@ -4,7 +4,7 @@ Read when: extending capture, decoder workers, mode filtering, marker rendering 
 
 ## Status and setup
 
-Development build 1.0.33 adds WSPR, FST4, FST4W and Q65 to both host builds. The published 1.0.32 release supports FT8/FT4. Additional modes start off. Use Modes... or Settings > Reception to enable a mode, choose its sequence length and, for Q65, match the tone spacing used on air. FT8/FT4 retain their existing controls and decoder helper.
+Release 1.0.39 includes WSPR, FST4, FST4W and Q65 alongside FT8/FT4 in both host builds. FT8, FT4 and WSPR default on; main-window switches control all three. Other modes default off and can be enabled in Modes... or Settings > Reception. Saved enable choices take precedence. Sequence defaults to All; a single period remains selectable to reduce work. This update moves existing sequence settings to All once, preserving mode enable switches; later selections are remembered. For Q65, match the tone spacing used on air. FT8/FT4 retain their existing controls and decoder helper.
 
 | Mode | Sequence lengths | Map shape | Message behavior |
 | --- | --- | --- | --- |
@@ -14,7 +14,7 @@ Development build 1.0.33 adds WSPR, FST4, FST4W and Q65 to both host builds. The
 | FST4W | 120, 300, 900, 1800 seconds | Diamond | Beacon, optional grid and transmitter power |
 | Q65 | 15, 30, 60, 120, 300 seconds | Hexagon | QSO formats |
 
-Q65 offers A-C at 15 seconds, A-D at 30 seconds, and A-E for the longer sequences, matching the documented combinations. This build decodes individual sequences without cross-sequence averaging. Match the transmitting stations; the plugin does not automatically infer the sequence or spacing. Common dial presets come from the pinned WSJT-X frequency list; custom dial frequencies are supported.
+Q65 offers A-C at 15 seconds, A-D at 30 seconds, and A-E for the longer sequences, matching the documented combinations. All supports A-C across all five periods; select an individual longer period for D/E. This build decodes individual sequences without cross-sequence averaging. All tries each period explicitly; it does not infer tone spacing. Common dial presets come from the pinned WSJT-X frequency list; custom dial frequencies are supported.
 
 ## Reception and limits
 
@@ -22,7 +22,11 @@ All modes share the map, Unique stations, All messages and Countries heard tabs,
 
 Shape identifies mode and SNR remains color. FT8/FT4 circle geometry, selection outlines and arrival halos are preserved. The shape legend appears only with additional-mode records. Distances and bearings always use the receiver's home grid. GridTracker forwarding currently remains FT8/FT4 only.
 
-A capture begins on the next complete UTC sequence boundary. Progress shows elapsed and total seconds. Stopping, retuning, timestamp discontinuities and mode changes invalidate partial captures. Retuning also cancels queued/in-flight additional-mode work. At most four additional channels and 96 MB of capture audio are active; the independent worker queue holds at most four jobs and 64 MB of audio. Expired or excess jobs increment the skipped count. Additional modes cannot occupy the FT8/FT4 decoder worker. One additional decoder runs at a time, at reduced process priority, with a 120-second watchdog. Errors appear separately and later sequences can recover.
+A capture begins on the next complete UTC boundary for each selected period. Progress follows the shortest period; longer periods collect in parallel and may need up to 30 minutes after their next boundary. Stopping, retuning, timestamp discontinuities and mode changes invalidate all partial captures. Retuning also cancels queued/in-flight additional-mode work. At most four additional channels and 96 MiB of capture audio are active. Each channel retains one rolling buffer of immutable blocks sized to its longest period. Jobs reference overlapping blocks rather than copying audio for every period. Helper IPC streams the exact window directly from those blocks, including clipped first/last blocks.
+
+The independent worker queue holds at most 32 jobs referencing at most 96 MiB of unique audio, ordered by deadline. Count shared blocks once when enforcing the byte limit. Queue memory and capture memory may overlap; in-flight helper audio is additional. Expired or excess jobs increment the skipped count. These bounds accommodate coincident sequence completions without unbounded backlog; All can use more CPU and slow hardware can skip work. Additional modes cannot occupy the FT8/FT4 decoder worker. One additional decoder runs at a time, at reduced process priority, with a 120-second watchdog. Errors appear separately and later sequences can recover.
+
+Capture tests cover every period together, shared block ownership, non-nested 120/300-second UTC boundaries, partial starts, timestamp jumps, resets and memory bounds. The production pipeline fixtures also pass captured audio through shared-block helper IPC, SQLite and CSV. Native ImGui interaction tests check mouse selection, local arrow-key selection and double-click details behavior.
 
 Decoder processes use owned temporary directories. WSPR audio and diagnostic reception files are removed after each job; bounded hash/FFT state stays only for the worker's lifetime. Stopping a worker kills its process group and removes its scratch directory. Protocol changes cannot load synthetic tests into the receiver's normal history.
 

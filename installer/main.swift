@@ -57,7 +57,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         if let index = manifests.indices.first(where: { FileManager.default.fileExists(atPath: manifests[$0].appPath) }) { selectedHost = index }
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 550, height: 540),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Install Advanced FT8/FT4 DX Decoder"
+        window.title = "Install Advanced FT8/FT4/WSPR DX Decoder"
         window.delegate = self
         window.center()
         let stack = NSStackView()
@@ -69,7 +69,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -28),
             stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24)
         ])
-        let title = NSTextField(wrappingLabelWithString: "Advanced FT8/FT4 DX Decoder")
+        let title = NSTextField(wrappingLabelWithString: "Advanced FT8/FT4/WSPR DX Decoder")
         title.font = .boldSystemFont(ofSize: 22)
         stack.addArrangedSubview(title)
         let intro = NSTextField(wrappingLabelWithString: "Install for SDR++ or SDR++Brown. Choose your radio application below.")
@@ -190,7 +190,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     private func finished(_ installed: InstallReceipt) {
         receipt = installed; busy = false; progress.stopAnimation(nil)
-        status.stringValue = "Installed. Open \(manifests[selectedHost].hostName) and find Advanced FT8/FT4 DX Decoder in the sidebar."
+        status.stringValue = "Installed. Open \(manifests[selectedHost].hostName) and find Advanced FT8/FT4/WSPR DX Decoder in the sidebar."
         status.textColor = .systemGreen
         primary.title = "Open \(manifests[selectedHost].hostName)"; primary.isEnabled = true
         cancel.title = "Done"; cancel.isEnabled = true

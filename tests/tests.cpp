@@ -70,7 +70,7 @@ int main(){
  auto cachePath=std::filesystem::temp_directory_path()/("dx-cache-"+std::to_string(getpid())+".sqlite3");{
   dx::Store store(cachePath);auto reception=[&](int seconds,const std::string& message){dx::Decode heard;heard.utc=d.utc+seconds;heard.dial=d.dial;heard.mode=d.mode;heard.audio=1000;heard.snr=-12;heard.message=message;if(!store.insert(heard,home))throw std::runtime_error("Reception fixture was not inserted");return heard;};
   auto grid=reception(0,"CQ K1ABC FN42");auto first=reception(15,"K2ABC K1ABC -10");auto second=reception(30,"K2ABC K1ABC RR73");CHECK(first.gridSource=="cached"&&second.gridSource=="cached"&&second.km&&second.gridUtc==grid.utc);
-  auto expired=reception(21601,"K2ABC K1ABC 73");CHECK(!expired.km&&expired.gridSource.empty());
+  auto expired=reception(dx::locationCacheSeconds+1,"K2ABC K1ABC 73");CHECK(!expired.km&&expired.gridSource.empty());
   auto unknown=reception(21615,"CQ LZ936BA");CHECK(!unknown.km&&!unknown.position);
   CHECK(dx::latestHeardSummary(unknown).find("distance unknown | -12 dB SNR")!=std::string::npos);CHECK(dx::latestHeardSummary(grid).find("km | -12 dB SNR")!=std::string::npos);
  }

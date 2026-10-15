@@ -35,9 +35,17 @@ void Helper::transfer(int fd,void* data,size_t size,bool writing,int64_t deadlin
  }
 }
 Json Helper::decode(const Job& job,const std::atomic<bool>& stopping){
- try{if(pid_<0)start();auto header=Json{{"id",job.id},{"utc_ms",job.utcMs},{"frequency",job.dial},{"mode",job.mode},{"period_ms",job.periodMs},{"submode",job.submode},{"samples",job.pcm.size()}}.dump();uint32_t size=uint32_t(header.size());auto deadline=monotonicMs()+(isolated_?120000:20000);
+ try{size_t count=job.pcm.size();std::vector<std::pair<const int16_t*,size_t>> spans;
+  if(!job.audio.empty()){
+   if(!job.pcm.empty()||job.periodMs<=0||job.periodMs>1800000||job.utcMs<0||job.utcMs>INT64_MAX/12-int64_t(job.periodMs))throw std::runtime_error("Invalid captured audio window");
+   int64_t cursor=job.utcMs*12,end=cursor+int64_t(job.periodMs)*12;count=size_t(end-cursor);
+   for(const auto& part:job.audio){if(!part)throw std::runtime_error("Missing captured audio block");auto from=std::max(cursor,part->startSample),to=std::min(end,part->startSample+int64_t(part->pcm.size()));if(to<=from)continue;if(from!=cursor)throw std::runtime_error("Incomplete captured audio window");spans.push_back({part->pcm.data()+size_t(from-part->startSample),size_t(to-from)});cursor=to;}
+   if(cursor!=end)throw std::runtime_error("Incomplete captured audio window");
+  }
+  if(pid_<0)start();auto header=Json{{"id",job.id},{"utc_ms",job.utcMs},{"frequency",job.dial},{"mode",job.mode},{"period_ms",job.periodMs},{"submode",job.submode},{"samples",count}}.dump();uint32_t size=uint32_t(header.size());auto deadline=monotonicMs()+(isolated_?120000:20000);
   transfer(input_,&size,4,true,deadline,stopping);transfer(input_,header.data(),size,true,deadline,stopping);
-  transfer(input_,const_cast<int16_t*>(job.pcm.data()),job.pcm.size()*2,true,deadline,stopping);
+  if(spans.empty())transfer(input_,const_cast<int16_t*>(job.pcm.data()),job.pcm.size()*2,true,deadline,stopping);
+  else for(const auto& span:spans)transfer(input_,const_cast<int16_t*>(span.first),span.second*2,true,deadline,stopping);
   transfer(output_,&size,4,false,deadline,stopping);if(size>1024*1024)throw std::runtime_error("Invalid decoder response size");
   std::string body(size,'\0');transfer(output_,body.data(),size,false,deadline,stopping);auto result=Json::parse(body);
   if(result.at("id")!=job.id||!result.at("results").is_array())throw std::runtime_error("Stale decoder response");if(!result.value("error",std::string{}).empty())throw std::runtime_error(result.at("error").get<std::string>());return result;

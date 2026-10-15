@@ -40,6 +40,7 @@ Store::Store(const std::filesystem::path& file){
  if(sqlite3_open_v2(file.c_str(),&db_,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_NOMUTEX,nullptr)!=SQLITE_OK){std::string error=sqlite3_errmsg(db_);sqlite3_close(db_);db_=nullptr;throw std::runtime_error(error);}
  sqlite3_busy_timeout(db_,2000);sqlite3_create_function(db_,"dx_match",2,SQLITE_UTF8|SQLITE_DETERMINISTIC,nullptr,sqlMatch,nullptr,nullptr);
  sqlite3_create_function(db_,"dx_band",1,SQLITE_UTF8|SQLITE_DETERMINISTIC,nullptr,sqlBand,nullptr,nullptr);
+ sqlite3_create_function(db_,"dx_location_mismatch",4,SQLITE_UTF8|SQLITE_DETERMINISTIC,this,[](sqlite3_context* c,int,sqlite3_value** v){try{auto string=[](sqlite3_value* value){const auto* s=sqlite3_value_text(value);return s?std::string(reinterpret_cast<const char*>(s)):std::string{};};auto* store=static_cast<Store*>(sqlite3_user_data(c));sqlite3_result_int(c,store->locationCheck_.mismatch(string(v[0]),string(v[1]),string(v[2]),sqlite3_value_double(v[3])));}catch(...){sqlite3_result_int(c,0);}},nullptr,nullptr);
  try{
  exec("PRAGMA auto_vacuum=INCREMENTAL;PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;"
  "CREATE TABLE IF NOT EXISTS decodes(reception_id INTEGER PRIMARY KEY,key TEXT NOT NULL UNIQUE,utc INTEGER NOT NULL,dial INTEGER NOT NULL,mode TEXT NOT NULL,call TEXT NOT NULL,called TEXT,country TEXT,continent TEXT,grid TEXT,type TEXT,band TEXT,snr INTEGER,dt REAL,km REAL,message TEXT,payload TEXT NOT NULL);"
@@ -56,6 +57,7 @@ Store::Store(const std::filesystem::path& file){
  "CREATE TABLE IF NOT EXISTS imports(path TEXT PRIMARY KEY,cursor INTEGER);"
  "CREATE TABLE IF NOT EXISTS counters(key TEXT PRIMARY KEY,value INTEGER);INSERT OR IGNORE INTO counters VALUES('messages',0);");
  ensureReceptionIds();
+ exec("CREATE INDEX IF NOT EXISTS by_call_received_grid ON decodes(call,utc DESC,reception_id DESC) WHERE grid!='' AND json_extract(payload,'$.grid_source')='received'");
  if(getSetting("country_names",0).get<int>()<1){exec("BEGIN IMMEDIATE");try{
   exec("UPDATE decodes SET country='Germany',payload=json_set(payload,'$.country','Germany') WHERE country='Fed. Rep. of Germany';"
    "UPDATE stations SET payload=json_set(payload,'$.country','Germany') WHERE json_extract(payload,'$.country')='Fed. Rep. of Germany';"
@@ -109,7 +111,7 @@ bool Store::insert(Decode& d,Point home,const std::function<std::pair<std::strin
  d.country=countryName(d.country);
  if(!i.grid.empty()){d.gridSource="received";d.gridUtc=d.utc;d.position=gridPoint(i.grid);}
  else if(!i.transmitter.empty()&&i.transmitter.front()!='<'){
-  auto s=prepare(db_,"SELECT payload FROM decodes WHERE call=? AND utc<=? AND utc>=? AND grid!='' AND json_extract(payload,'$.grid_source')='received' ORDER BY utc DESC LIMIT 1");bindText(s.get(),1,i.transmitter);sqlite3_bind_int64(s.get(),2,d.utc);sqlite3_bind_int64(s.get(),3,d.utc-21600);
+  auto s=prepare(db_,"SELECT payload FROM decodes INDEXED BY by_call_received_grid WHERE call=? AND utc<=? AND utc>=? AND grid!='' AND json_extract(payload,'$.grid_source')='received' ORDER BY utc DESC LIMIT 1");bindText(s.get(),1,i.transmitter);sqlite3_bind_int64(s.get(),2,d.utc);sqlite3_bind_int64(s.get(),3,d.utc-locationCacheSeconds);
   if(step(db_,s.get())==SQLITE_ROW){auto last=Decode::fromJson(Json::parse(column(s.get(),0)));if(last.gridSource=="received"){i.grid=last.identity.grid;d.gridSource="cached";d.gridUtc=last.utc;d.position=gridPoint(i.grid);}}
  }
  d.km.reset();d.bearing.reset();if(d.position&&std::isfinite(home.lat)&&std::isfinite(home.lon)){auto b=distanceBearing(home,*d.position);d.km=b.first;d.bearing=b.second;}
@@ -156,6 +158,7 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
  if(!f.search.empty()){where+=" AND instr(upper(message||' '||country||' '||call),?)>0";values.push_back(upper(f.search));}
  if(!f.text.empty()){where+=" AND instr(upper(message),?)>0";values.push_back(upper(f.text));}
  if(f.cqOnly)where+=" AND type='CQ'";if(f.hasGrid)where+=" AND grid!=''";if(f.hasTarget)where+=" AND called NOT IN ('','CQ','QRZ','DE')";if(f.first)where+=" AND json_extract(payload,'$.first_call')=1";
+ if(f.removeLikelyFalse)where+=" AND NOT dx_location_mismatch(country,grid,call,"+std::to_string(std::isfinite(f.falseToleranceKm)?std::clamp(f.falseToleranceKm,0.,2000.):300.)+")";
  if(f.messageKind==MessageKind::GeneralCall)where+=" AND called IN ('CQ','QRZ')";
  if(f.messageKind==MessageKind::Exchange)where+=" AND call!='' AND called NOT IN ('','CQ','QRZ','DE')";
  if(f.messageKind==MessageKind::Other)where+=" AND type!='Beacon' AND called NOT IN ('CQ','QRZ') AND (call='' OR called IN ('','DE'))";
@@ -207,6 +210,15 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
  sqlite3_bind_int(s.get(),pos++,limit);sqlite3_bind_int(s.get(),pos,offset);std::vector<Row> rows;
  while(step(db_,s.get())==SQLITE_ROW){auto d=Decode::fromJson(Json::parse(column(s.get(),0)));rows.push_back({std::move(d),sqlite3_column_int64(s.get(),1),sqlite3_column_int64(s.get(),2),sqlite3_column_int64(s.get(),3)});}return rows;
 }
+void Store::mapLocations(std::vector<Row>& rows){
+ // Display evidence only: never rewrite the reception, its distance or logs.
+ // The partial index avoids scanning a station's repeated report messages.
+ auto s=prepare(db_,"SELECT grid,utc FROM decodes INDEXED BY by_call_received_grid WHERE call=? AND utc<=? AND grid!='' AND json_extract(payload,'$.grid_source')='received' ORDER BY utc DESC,reception_id DESC LIMIT 1");
+ for(auto& row:rows){row.lastKnownLocation.reset();const auto& d=row.decode;if(d.position||d.identity.transmitter.empty()||d.identity.transmitter.front()=='<')continue;
+  sqlite3_reset(s.get());sqlite3_clear_bindings(s.get());bindText(s.get(),1,d.identity.transmitter);sqlite3_bind_int64(s.get(),2,d.utc);
+  if(step(db_,s.get())==SQLITE_ROW){auto grid=column(s.get(),0);if(auto point=gridPoint(grid))row.lastKnownLocation=MapLocation{*point,grid,sqlite3_column_int64(s.get(),1)};}
+ }
+}
 std::vector<Decode> Store::history(const std::string& call,int64_t dial,const std::string& mode,int offset){auto s=prepare(db_,"SELECT payload FROM decodes WHERE call=? AND dial=? AND mode=? ORDER BY utc DESC LIMIT 500 OFFSET ?");bindText(s.get(),1,call);sqlite3_bind_int64(s.get(),2,dial);bindText(s.get(),3,mode);sqlite3_bind_int(s.get(),4,offset);std::vector<Decode> out;while(step(db_,s.get())==SQLITE_ROW)out.push_back(Decode::fromJson(Json::parse(column(s.get(),0))));return out;}
 std::vector<Decode> Store::uniqueMessages(const Decode& station,const Query& view){
  auto s=prepare(db_,"SELECT payload FROM (SELECT payload,utc,rowid AS reception_order,row_number() OVER (PARTITION BY message ORDER BY utc DESC,rowid DESC) AS rank FROM decodes WHERE call=? AND dial=? AND mode=? AND utc BETWEEN ? AND ? AND rowid>?) WHERE rank=1 ORDER BY utc DESC,reception_order DESC LIMIT 5");
@@ -252,7 +264,7 @@ std::vector<ExchangePath> Store::exchangePaths(const Query& query){
  std::set<std::tuple<std::string,std::string,int64_t,std::string>> seen;
  for(const auto& row:recent){auto& d=row.decode;if(query.pathSpectrum&&!frequencyVisible(d.dial+d.audio,*query.pathSpectrum))continue;if(d.identity.transmitter.empty()||d.identity.called.empty()||d.identity.called=="CQ"||d.identity.called.front()=='<'||d.identity.transmitter.front()=='<')continue;
   if(d.identity.transmitter==d.identity.called)continue;auto pair=std::minmax(d.identity.transmitter,d.identity.called);auto key=std::make_tuple(pair.first,pair.second,d.dial,d.mode);if(seen.count(key))continue;
-  auto location=[&](const std::string& call)->std::optional<Decode>{auto s=prepare(db_,"SELECT payload FROM decodes WHERE call=? AND utc BETWEEN ? AND ? AND grid!='' AND json_extract(payload,'$.grid_source')='received' ORDER BY utc DESC LIMIT 1");bindText(s.get(),1,call);sqlite3_bind_int64(s.get(),2,end-21600);sqlite3_bind_int64(s.get(),3,end);if(step(db_,s.get())!=SQLITE_ROW)return {};return Decode::fromJson(Json::parse(column(s.get(),0)));};
+  auto location=[&](const std::string& call)->std::optional<Decode>{auto s=prepare(db_,"SELECT payload FROM decodes INDEXED BY by_call_received_grid WHERE call=? AND utc BETWEEN ? AND ? AND grid!='' AND json_extract(payload,'$.grid_source')='received' ORDER BY utc DESC LIMIT 1");bindText(s.get(),1,call);sqlite3_bind_int64(s.get(),2,end-locationCacheSeconds);sqlite3_bind_int64(s.get(),3,end);if(step(db_,s.get())!=SQLITE_ROW)return {};return Decode::fromJson(Json::parse(column(s.get(),0)));};
   auto from=location(d.identity.transmitter),to=location(d.identity.called);if(!from||!to||!from->position||!to->position)continue;
   seen.insert(key);paths.push_back({d.identity.transmitter,d.identity.called,d.utc,from->utc,to->utc,greatCircle(*from->position,*to->position),d.dial+d.audio});if(int(paths.size())>=query.pathCount)break;
  }return paths;

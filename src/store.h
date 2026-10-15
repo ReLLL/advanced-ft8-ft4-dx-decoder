@@ -2,6 +2,7 @@
 #pragma once
 #include "model.h"
 #include "saved_cleanup.h"
+#include "location_check.h"
 #include <sqlite3.h>
 #include <filesystem>
 #include <functional>
@@ -9,17 +10,20 @@
 namespace dx {
 constexpr int defaultHistoryLimit=100000;
 constexpr int64_t historyCheckIntervalMs=30*60*1000;
-constexpr int64_t historyCleanupTarget(int64_t limit){return limit*95/100;}
+constexpr int64_t historyCleanupTarget(int64_t limit,int64_t requested=0){return requested>0?std::clamp(requested,int64_t(1),std::max<int64_t>(1,limit-1)):limit*95/100;}
 class Store {
 public:
  explicit Store(const std::filesystem::path& file);~Store();
  Store(const Store&)=delete;Store& operator=(const Store&)=delete;
  bool insert(Decode& d,Point home,const std::function<std::pair<std::string,std::string>(const std::string&)>& country={});
  std::vector<Row> rows(const Query& query,int offset=0,int limit=10000,int64_t* countOnly=nullptr);
+ void mapLocations(std::vector<Row>& rows);
+ bool loadCountryAreas(const std::filesystem::path& file){invalidateSession();return locationCheck_.load(file);}
  std::vector<Decode> history(const std::string& call,int64_t dial,const std::string& mode,int offset=0);
  std::vector<Decode> uniqueMessages(const Decode& station,const Query& view);
- Stats stats(int64_t now);int64_t importBridge(const std::filesystem::path&,Point,const std::function<std::pair<std::string,std::string>(const std::string&)>&);
- Stats sessionStats(int64_t now,int64_t afterRowId,int64_t since);
+ Stats stats(int64_t now,const Filter& filter={});int64_t importBridge(const std::filesystem::path&,Point,const std::function<std::pair<std::string,std::string>(const std::string&)>&);
+ Stats sessionStats(int64_t now,int64_t afterRowId,int64_t since,const Filter& filter={});
+ bool passesLocationFilter(const Decode& d,const Filter& filter){return !filter.removeLikelyFalse||!locationCheck_.mismatch(d.country,d.identity.grid,d.identity.transmitter,filter.falseToleranceKm);}
  Json getSetting(const std::string& key,const Json& fallback);void setSetting(const std::string& key,const Json& value);
  void exportRows(const Query& query,const std::filesystem::path& path,bool csv);
  void reclassifyCountries(const std::function<std::pair<std::string,std::string>(const std::string&)>& country);
@@ -37,19 +41,26 @@ public:
  std::vector<std::string> savedCountries();
  int64_t savedMessageCount();
  void compact();
- struct RetentionState {int64_t firstUtc=0,lastUtc=0,deleted=0,limit=defaultHistoryLimit;bool enabled=true,running=false;};
+ struct RetentionState {int64_t firstUtc=0,lastUtc=0,deleted=0,limit=defaultHistoryLimit,target=historyCleanupTarget(defaultHistoryLimit);bool enabled=true,running=false;};
  RetentionState retentionState();
  // One bounded transaction. The caller must drain reception/CSV work first.
- int64_t retain(int64_t limit,int batch=128,int64_t syncedThrough=INT64_MAX);
+ int64_t retain(int64_t limit,int batch=128,int64_t syncedThrough=INT64_MAX,int64_t trimTo=0);
  bool reclaimPages(int pages=32);
  void unignoreAll();std::vector<std::string> ignoredCalls();bool ignored(const std::string& call);
 private:
+ LocationCheck locationCheck_;
  void ensureReceptionIds();void ensureEntities();void rebuildSummaries(bool stations=true);
- void invalidateSession(){sessionAfter_=-1;}
+ struct StatsCache {
+  int64_t after=-1,since=0,cursor=0,dataVersion=-1,farthestId=0;
+  bool filtered=false,receivedOnly=false;double tolerance=300;
+  Stats totals;std::map<std::string,std::pair<int64_t,Decode>> calls,countries;
+  std::map<std::string,int64_t> countryFirst;
+ };
+ Stats scopedStats(int64_t now,int64_t after,int64_t since,const Filter&,StatsCache&,bool receivedOnly);
+ void expireStats(StatsCache&,const std::vector<std::pair<int64_t,Decode>>&);
+ void invalidateSession(){sessionCache_.after=historyCache_.after=-1;}
  void expireSession(const std::vector<std::pair<int64_t,Decode>>& expired);
  void exec(const std::string& sql);sqlite3* db_=nullptr;
- int64_t sessionAfter_=-1,sessionSince_=0,sessionCursor_=0,sessionDataVersion_=-1,sessionFarthestId_=0;
- Stats session_;std::map<std::string,std::pair<int64_t,Decode>> sessionCalls_,sessionCountries_;
- std::map<std::string,int64_t> sessionCountryFirst_;
+ StatsCache sessionCache_,historyCache_;
 };
 }

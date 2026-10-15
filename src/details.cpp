@@ -1,5 +1,7 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "plugin.h"
+#include "table_defaults.h"
+#include <imgui_internal.h>
 #include <ctime>
 #include <cstdio>
 namespace {
@@ -8,14 +10,15 @@ ImVec4 signalColor(int snr){auto color=dx::snrMapColor(snr);return {color[0],col
 void field(const char* label,const std::string& value,const ImVec4& color){ImGui::TableNextColumn();ImGui::TextDisabled("%s",label);ImGui::TextColored(color,"%s",value.c_str());}
 void right(const char* text,const ImVec4& color){ImGui::SetCursorPosX(ImGui::GetCursorPosX()+std::max(0.f,ImGui::GetContentRegionAvail().x-ImGui::CalcTextSize(text).x));ImGui::TextColored(color,"%s",text);}
 }
-void DXNotebook::details(){
- auto snapshot=engine_->snapshot();const bool countryView=!selectedCountry_.empty();ImGui::Separator();ImGui::BeginChild("station_details",{0,0},false);
+void DXNotebook::details(float height){
+ auto snapshot=engine_->snapshot();const bool countryView=!selectedCountry_.empty();ImGui::BeginChild("station_details",{0,height},false);
+ dx::resetTableLayout("details_history",resetTableLayouts_,8);
  if(ImGui::BeginTable("details_heading",2,ImGuiTableFlags_SizingStretchProp)){
   ImGui::TableSetupColumn("Station",ImGuiTableColumnFlags_WidthStretch);ImGui::TableSetupColumn("Close",ImGuiTableColumnFlags_WidthFixed,ImGui::CalcTextSize("Close details").x+ImGui::GetStyle().FramePadding.x*2);
   ImGui::TableNextColumn();
   if(!countryView){const auto& d=*selected_;ImGui::TextColored(senderColor,"%s",d.identity.transmitter.empty()?"Unresolved sender":d.identity.transmitter.c_str());ImGui::SameLine(0,14);}
   const auto& name=countryView?selectedCountry_:selected_->country;countryFlag(name);ImGui::TextColored(countryColor,"%s",name.empty()?"Unknown country":name.c_str());
-  ImGui::TableNextColumn();if(ImGui::SmallButton("Close details")){ImGui::EndTable();ImGui::EndChild();selected_.reset();selectedCountry_.clear();engine_->selectCountry("");save();return;}ImGui::EndTable();
+  ImGui::TableNextColumn();if(ImGui::SmallButton("Close details")){ImGui::EndTable();ImGui::EndChild();detailsOpen_=false;engine_->selectCountry("");save();return;}ImGui::EndTable();
  }
  if(countryView)ImGui::TextDisabled("All matching receptions | newest first | repeats included");
  else{

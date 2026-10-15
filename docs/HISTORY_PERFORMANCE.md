@@ -48,7 +48,7 @@ The initial 50,000/45,000 default followed these complete refresh measurements. 
 - Separate fixtures completed trims to 225,000, 90,000 and 45,000 and passed full integrity_check after each. Fixture preparation used batches of 256 for these complete trims; these timings are not the production batch limit.
 - A continuous Store session completed 12 receive/cleanup cycles with 60,012 new receptions and week-spaced simulated timestamps. It returned to 45,000 records after each cycle, reconciled 66,308 deletions against the initial snapshot plus new arrivals, and passed integrity_check. Across 1,047 production-sized batches, the slowest deletion plus session-statistics update was 32 ms. This exercises repeated expiry within one session, rather than claiming a real three-month unattended run.
 - Tests cover failed-transaction rollback, abrupt exit before commit, restart/resume, summary equivalence, later arrivals, CSV catch-up, ID continuity and overlapping manual deletion. Every synthetic fixture is removed after testing.
-- Freed pages are reusable immediately. New databases use incremental auto-vacuum; existing databases gain it when compacted. Small incremental steps reclaim pages during idle periods. Existing databases are not rebuilt while receiving; one-off confirmed Saved messages cleanup still performs full compaction.
+- Freed pages are reusable immediately. New databases use incremental auto-vacuum; existing databases gain it when compacted. Small incremental steps reclaim pages during idle periods. Existing databases are not rebuilt while receiving; one-off confirmed History DB cleanup still performs full compaction.
 
 ## Repeating the workload
 

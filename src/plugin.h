@@ -4,6 +4,7 @@
 #include "tiles.h"
 #include "cartography.h"
 #include "modes.h"
+#include "status_bar.h"
 #include <module.h>
 #include <gui/gui.h>
 #include <signal_path/signal_path.h>
@@ -24,7 +25,7 @@ struct DXChannel {
  DXNotebook* owner;dx::Preset preset;std::string name;dsp::channel::RxVFO* vfo=nullptr;
  dsp::demod::SSB<dsp::stereo_t> usb;dsp::sink::Handler<dsp::stereo_t> sink;
  dsp::multirate::RationalResampler<dsp::stereo_t> resampler;
- dx::SlotCapture capture;std::atomic<bool> accept{false};std::atomic<uint64_t> blocks{0};
+ dx::SlotCapture capture;dx::SequenceCapture sequences;std::atomic<bool> accept{false};std::atomic<uint64_t> blocks{0};
  std::atomic<double> progress{0},level{-120};double lastData=0,nextRetry=0;uint64_t lastBlocks=0,reconnects=0;
  std::atomic<uint64_t> samples{0},discontinuities{0};std::atomic<int64_t> streamMs{0};
  std::atomic<bool> resetRequested{false},replay{false};
@@ -53,19 +54,19 @@ private:
  ImGuiID drawHook_=0;CornerBounds cornerBounds_;
 #endif
  void cornerNotifications(CornerBounds args);
- unsigned int countryFlagIcon(const std::string& country);void countryFlag(const std::string& country);
+ unsigned int countryFlagIcon(const std::string& country);void countryFlag(const std::string& country);unsigned int trophyTexture();
  bool cornerEnabled_=true,cornerVisible_=false,distanceMiles_=false;int cornerSeconds_=10;ImVec2 cornerMin_,cornerMax_;std::map<std::string,std::string> flagCodes_;
  std::map<std::string,unsigned int> cornerIcons_;std::map<std::string,std::pair<std::string,int64_t>> cornerChanges_;
 #if DX_HOST_BROWN
  EventHandler<ImGui::WaterFall::WaterfallDrawArgs> cornerHandler_;
 #endif
- void sidebar();void draw();void openWindow();void closeWindow();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void stationMenu(const dx::Decode&,const std::vector<dx::Row>&);void ignoreConfirmation();void sharedFilters();void directionStat(const char*,std::optional<double>);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details();void save();void refresh(bool changed=true);bool historyOptions(bool compact=false);bool timeWindow(const char* label,int& choice);void migration();
+ void sidebar();void draw();void openWindow();void closeWindow();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void stationMenu(const dx::Decode&,const std::vector<dx::Row>&);void ignoreConfirmation();void sharedFilters();void directionStat(const char*,std::optional<double>);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details(float height);void save();void refresh(bool changed=true);bool historyOptions(bool compact=false);bool timeWindow(const char* label,int& choice);void migration();
  std::pair<std::string,std::string> lookupCountry(const std::string& call)const;
  std::string name_;std::filesystem::path root_;std::unique_ptr<dx::Engine> engine_;dx::Point home_;DXCountryDatabase countries_;
 #if !DX_HOST_BROWN
  std::string receiverGrid_,receiverCall_;bool receiverGridError_=false;
 #endif
- bool enabled_=true,open_=true,present_=true,paused_=false,ft8_=true,ft4_=true,ownsGesture_=false,popup_=false,settingsLoaded_=false;
+ bool enabled_=true,open_=true,present_=true,paused_=false,ft8_=true,ft4_=true,ownsGesture_=false,popup_=false,settingsLoaded_=false,detailsOpen_=false;
  dx::Json modeSettings_=dx::Json::object();bool modeSettings();bool modeEnabled(const std::string&)const;std::vector<dx::Preset> additionalPresets()const;
  int view_=0,tableTime_=2,sort_=17;bool descending_=true;float split_=.53f,detailsSplit_=.3f;
  double center_=0,rate_=0,lastRefresh_=0;uint64_t generation_=1;ImVec2 windowMin_,windowMax_;
@@ -83,11 +84,14 @@ private:
  std::vector<dx::TableColumnSetting> tableColumns_;bool tableColumnsApplied_=false;
  ImVec2 settingsMin_,settingsMax_;std::string settingsError_;
  int clearTarget_=0;bool clearRequested_=false,clearStats_=true;int64_t tableCleared_=0,mapCleared_=0;unsigned int homeIcon_=0;
- bool clearOnStart_=true,statsHistory_=false,historyAll_=false,historyAutoTrim_=true;int historyMaxRecords_=dx::defaultHistoryLimit;int64_t historyTableCleared_=0,historyMapCleared_=0;int directionStations_=5,csvMaxMb_=100;char csvPath_[4096]="";
+ bool clearOnStart_=true,statsHistory_=false,historyAll_=false,historyAutoTrim_=true;int historyMaxRecords_=dx::defaultHistoryLimit,historyTrimTo_=int(dx::historyCleanupTarget(dx::defaultHistoryLimit));int64_t historyTableCleared_=0,historyMapCleared_=0;int directionStations_=5,csvMaxMb_=100;char csvPath_[4096]="";
  std::string csvLogPath_;
  std::optional<dx::IgnoreTarget> ignoreRequested_;dx::IgnoreTarget ignoreTarget_;bool ignoreWaiting_=false,deletePrimary_=false,alsoAction_=false;uint64_t ignoreRequestId_=0;std::optional<dx::Decode> mapContext_;
  int cleanupKind_=0;char cleanupFrom_[32]="",cleanupTo_[32]="";std::string cleanupCountry_,cleanupValidation_;bool cleanupCached_=false;dx::SavedCleanup cleanupCriteria_;uint64_t cleanupPreviewId_=0,cleanupRequestId_=0;
- void savedMessagesSettings();
+ bool historyDatabaseSettings();void statusBar(const dx::Snapshot&);
+ dx::StatusNotification statusNotice_;uint64_t heardNotice_=0;int64_t statusAlertUtc_=0;std::string statusError_;double statusErrorStarted_=0;
+ uint64_t defaultsRequest_=0;bool defaultsReload_=false,resetWindowGeometry_=false;unsigned int resetTableLayouts_=0;
+ void defaultsFooter();void loadRestoredDefaults(const dx::Snapshot&);
  bool gridTrackerEnabled_=false,gridTrackerReplay_=true;int gridTrackerPort_=2237,gridTrackerMinutes_=30;char gridTrackerAddress_[64]="127.0.0.1";std::string gridTrackerHost_="127.0.0.1";
  EventHandler<ImGuiContext*> drawHandler_;EventHandler<ImGui::WaterFall::InputHandlerArgs> inputHandler_;
 };

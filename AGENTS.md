@@ -1,4 +1,4 @@
-# Advanced FT8/FT4 DX Decoder
+# Advanced FT8/FT4/WSPR DX Decoder
 
 ## Test reception cleanup
 
@@ -22,7 +22,8 @@
 
 ## History performance and integrity
 
-- Default retention: 100,000 receptions, cleanup to 95,000 (95% of the configured limit). Check count and file-size metadata every 30 minutes, at startup and on a policy change. At most 64 records per transaction, with at least 250 ms between maintenance steps. Run reception writes and CSV sync first; protect the CSV watermark and new arrivals. Do not require the decoder or query queue to become idle, which can starve month-long operation. Keep the retained date visible; saved statistics cover retained records. CSV has an independent limit.
+- Remove likely falses is reversible: apply the same country/grid check to existing and new receptions in map, tables, reception statistics and alerts; never delete or ignore records through this checkbox. Keep uptime as elapsed runtime. Cache filtered history and session summaries separately; expire only accepted records from each summary during bounded retention batches.
+- Default retention: 100,000 receptions, cleanup to 95,000. Both thresholds are configurable in Settings > History > History DB; existing custom limits without a saved target keep the previous 95% target. Check count and file-size metadata every 30 minutes, at startup and on a policy change. At most 64 records per transaction, with at least 250 ms between maintenance steps. Run reception writes and CSV sync first; protect the CSV watermark and new arrivals. Do not require the decoder or query queue to become idle, which can starve month-long operation. Keep the retained date visible; saved statistics cover retained records. CSV has an independent limit.
 - Automatic expiry must update session cache entries incrementally. Rebuilding the whole retained session after every batch causes repeated long pauses once a continuously running session reaches retention age.
 - Reception changes, entity summaries, retention progress and stable IDs must commit together. Never reuse IDs after deletion or compaction. Preserve later arrivals outside the captured cleanup boundary and retry interrupted work.
 - Keep covering indexes explicit for first/latest UTC lookups. Adding ID indexes caused SQLite to choose country-wide payload scans during deletion; the million-record fixtures exposed this. Measure complete Engine view updates, not only individual SQL queries, before raising retention defaults.

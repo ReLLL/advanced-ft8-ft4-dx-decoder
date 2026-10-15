@@ -4,6 +4,7 @@
 #include <optional>
 #include <string_view>
 #include <cstdint>
+#include <vector>
 namespace dx {
 enum class MarkerShape {Circle,Square,Triangle,Diamond,Hexagon};
 struct ModeSpec {
@@ -13,6 +14,9 @@ struct ModeSpec {
 const std::array<ModeSpec,6>& modeSpecs();
 const ModeSpec* modeSpec(std::string_view name);
 std::optional<int64_t> capturePeriodMs(std::string_view mode,int requestedMs=0);
+// Zero selects every supported period, independently of the legacy single-slot API.
+std::vector<int> sequencePeriods(std::string_view mode,int selectionMs=0);
+int sequenceSubmodeMaximum(int selectionMs);
 MarkerShape modeMarker(std::string_view mode);
 // Circle uses the existing native circle renderer; polygons use these local offsets.
 struct MarkerOutline {std::array<std::array<float,2>,6> points{};int count=0;};

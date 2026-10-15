@@ -13,7 +13,7 @@ int main(int argc,char** argv){
   dx::Job slow;slow.mode="FST4";slow.utcMs=int64_t(time(nullptr))*1000;slow.periodMs=15000;slow.dial=474200;slow.pcm.resize(180000);slow.deadlineMs=dx::monotonicMs()+120000;engine.enqueue(slow);
   auto wait=[&](auto condition){auto begin=dx::monotonicMs();while(dx::monotonicMs()-begin<5000){if(condition(*engine.snapshot()))return true;std::this_thread::sleep_for(std::chrono::milliseconds(20));}return condition(*engine.snapshot());};
   CHECK(wait([](const dx::Snapshot& s){return s.modeDecoding;}));for(int i=0;i<40;i++)engine.enqueue(slow);
-  dx::Job fast=slow;fast.mode="FT8";fast.dial=7074000;engine.enqueue(std::move(fast));CHECK(wait([](const dx::Snapshot& s){return s.stats.messages==3;}));CHECK(engine.snapshot()->modeQueued<=4&&engine.snapshot()->skipped>=36);
+  dx::Job fast=slow;fast.mode="FT8";fast.dial=7074000;engine.enqueue(std::move(fast));CHECK(wait([](const dx::Snapshot& s){return s.stats.messages==3;}));CHECK(engine.snapshot()->modeQueued==dx::additionalQueueLimit&&engine.snapshot()->skipped>=40-dx::additionalQueueLimit);
   start=dx::monotonicMs();engine.invalidateAdditional();CHECK(wait([](const dx::Snapshot& s){return !s.modeDecoding&&s.modeQueued==0;}));CHECK(dx::monotonicMs()-start<2000);CHECK(engine.snapshot()->stats.messages==3);
   engine.enqueue(slow);CHECK(wait([](const dx::Snapshot& s){return s.modeDecoding;}));start=dx::monotonicMs();
  }

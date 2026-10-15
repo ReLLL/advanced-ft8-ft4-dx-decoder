@@ -138,7 +138,7 @@ def main():
                 if path.is_file():
                     bundle.write(path, path.relative_to(package.parent))
         disk = output / (name + "-installer-macos-arm64.dmg")
-        subprocess.run(["hdiutil", "create", "-ov", "-format", "UDZO", "-volname", "Advanced FT8-FT4 DX Decoder",
+        subprocess.run(["hdiutil", "create", "-ov", "-format", "UDZO", "-volname", "Advanced FT8-FT4-WSPR DX Decoder",
                         "-srcfolder", str(package), str(disk)], check=True)
         if args.notary_profile:
             sign(disk, args.signing_identity)

@@ -18,6 +18,11 @@ std::optional<int64_t> capturePeriodMs(std::string_view name,int requestedMs){
  for(size_t i=0;i<mode->periodCount;i++)if(mode->periodsMs[i]==requestedMs)return requestedMs;return {};
 }
 MarkerShape modeMarker(std::string_view name){auto mode=modeSpec(name);return mode?mode->marker:MarkerShape::Circle;}
+std::vector<int> sequencePeriods(std::string_view name,int selectionMs){
+ auto mode=modeSpec(name);if(!mode)return {};if(selectionMs)return capturePeriodMs(name,selectionMs)?std::vector<int>{selectionMs}:std::vector<int>{};
+ return {mode->periodsMs.begin(),mode->periodsMs.begin()+mode->periodCount};
+}
+int sequenceSubmodeMaximum(int selectionMs){return selectionMs==0||selectionMs==15000?2:selectionMs==30000?3:4;}
 MarkerOutline markerOutline(MarkerShape shape,float radius){
  MarkerOutline out;if(!std::isfinite(radius)||radius<=0)return out;
  constexpr double pi=3.14159265358979323846;double start=-pi/2;

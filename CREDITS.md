@@ -1,6 +1,6 @@
 # Credits
 
-Advanced FT8/FT4 DX Decoder is developed by [ReLLL](https://github.com/ReLLL). Its receiver integration, maps, reception history and interface build on substantial work by the amateur-radio and open-source communities.
+Advanced FT8/FT4/WSPR DX Decoder is developed by [ReLLL](https://github.com/ReLLL). Its receiver integration, maps, reception history and interface build on substantial work by the amateur-radio and open-source communities.
 
 ## WSJT-X, protocols and decoder algorithms
 
@@ -14,7 +14,7 @@ We acknowledge **Joe Taylor K1JT, Steve Franke K9AN, Bill Somerville G4WJS, Nico
 - **Q65 and Q-ary repeat-accumulate coding:** **Nico Palermo IV3NWV / Microtelecom Srl**, as credited in the [Q65 coding implementation](https://github.com/WSJTX/wsjtx/blob/967c85a6119110788b0df3782cf796485b2cee14/lib/qra/q65/q65.c), together with the WSJT-X integration contributors.
 - **Protocol specifications:** the [WSJT-X protocol documentation](https://github.com/WSJTX/wsjtx/blob/967c85a6119110788b0df3782cf796485b2cee14/doc/user_guide/en/protocols.adoc) describes the modes and their technical parameters.
 
-The staged WSJT-X sources retain their original notices and GPL license. Their pinned revision and file hashes are recorded under `third_party/wsjtx/`. Additional modes are available in development build 1.0.33; the published 1.0.32 release supports FT8/FT4. The README and release notes describe available features.
+The staged WSJT-X sources retain their original notices and GPL license. Their pinned revision and file hashes are recorded under `third_party/wsjtx/`. Release 1.0.39 includes FT8, FT4, WSPR, FST4, FST4W and Q65 reception. The README and release notes describe available features.
 
 ## MSHV and radio hosts
 

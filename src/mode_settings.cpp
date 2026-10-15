@@ -1,7 +1,7 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "plugin.h"
 bool DXNotebook::modeEnabled(const std::string& name)const{
- if(name=="FT8")return ft8_;if(name=="FT4")return ft4_;auto spec=dx::modeSpec(name);return spec&&spec->available&&modeSettings_.value(name,dx::Json::object()).value("enabled",false);
+ if(name=="FT8")return ft8_;if(name=="FT4")return ft4_;auto spec=dx::modeSpec(name);return spec&&spec->available&&modeSettings_.value(name,dx::Json::object()).value("enabled",name=="WSPR");
 }
 std::vector<dx::Preset> DXNotebook::additionalPresets()const{
  std::vector<dx::Preset> result;
@@ -13,16 +13,16 @@ std::vector<dx::Preset> DXNotebook::additionalPresets()const{
 bool DXNotebook::modeSettings(){
  bool changed=false;
  for(const auto& spec:dx::modeSpecs()){
-  if(spec.name=="FT8"||spec.name=="FT4"||!spec.available)continue;std::string name(spec.name);auto config=modeSettings_.value(name,dx::Json::object());bool enabled=config.value("enabled",false);ImGui::PushID(name.c_str());
+  if(spec.name=="FT8"||spec.name=="FT4"||!spec.available)continue;std::string name(spec.name);auto config=modeSettings_.value(name,dx::Json::object());bool enabled=config.value("enabled",name=="WSPR");ImGui::PushID(name.c_str());
   if(ImGui::Checkbox(name.c_str(),&enabled)){config["enabled"]=enabled;changed=true;}
   if(enabled){
-   int period=config.value("period_ms",name=="FST4"||name=="Q65"?60000:120000);if(!dx::capturePeriodMs(name,period))period=spec.periodsMs[0];auto label=std::to_string(period/1000)+" s";ImGui::SameLine();ImGui::SetNextItemWidth(95);
-   if(ImGui::BeginCombo("Sequence",label.c_str())){for(size_t i=0;i<spec.periodCount;i++){int value=spec.periodsMs[i];auto text=std::to_string(value/1000)+" s";if(ImGui::Selectable(text.c_str(),value==period)){period=value;config["period_ms"]=period;changed=true;}}ImGui::EndCombo();}
-   if(name=="Q65"){int maximum=period==15000?2:period==30000?3:4;int submode=std::clamp(config.value("submode",0),0,maximum);const char* names[]={"A","B","C","D","E"};ImGui::SameLine();ImGui::SetNextItemWidth(65);if(ImGui::Combo("Spacing",&submode,names,maximum+1))changed=true;config["submode"]=submode;}
+   int period=config.value("period_ms",0);if(dx::sequencePeriods(name,period).empty())period=0;auto label=period?std::to_string(period/1000)+" s":"All";ImGui::SameLine();ImGui::SetNextItemWidth(95);
+   if(ImGui::BeginCombo("Sequence",label.c_str())){if(ImGui::Selectable("All",period==0)){period=0;changed=true;}for(size_t i=0;i<spec.periodCount;i++){int value=spec.periodsMs[i];auto text=std::to_string(value/1000)+" s";if(ImGui::Selectable(text.c_str(),value==period)){period=value;changed=true;}}ImGui::EndCombo();}
+   if(name=="Q65"){int maximum=dx::sequenceSubmodeMaximum(period);int submode=std::clamp(config.value("submode",0),0,maximum);const char* names[]={"A","B","C","D","E"};ImGui::SameLine();ImGui::SetNextItemWidth(65);if(ImGui::Combo("Spacing",&submode,names,maximum+1))changed=true;config["submode"]=submode;if(period==0&&ImGui::IsItemHovered())ImGui::SetTooltip("All sequence lengths share spacing A, B or C.\nChoose 30 s or longer for spacing D; 60 s or longer for E.");}
    config["period_ms"]=period;
   }
   modeSettings_[name]=std::move(config);ImGui::PopID();
  }
- ImGui::TextWrapped("New modes start off. Match the sequence length and Q65 spacing used on air. Reception starts at the next complete UTC sequence. Tuning or stopping discards partial audio. Q65 uses individual sequences without cross-sequence averaging.");
+ ImGui::TextWrapped("FT8, FT4 and WSPR start on; other modes start off. All sequence lengths are selected by default and share captured audio. Longer sequences need a full uninterrupted capture, up to 30 minutes. Choose one length to reduce decoder work. Match Q65 spacing; All supports A-C. Tuning or stopping discards partial audio. Q65 uses individual sequences without cross-sequence averaging.");
  return changed;
 }
