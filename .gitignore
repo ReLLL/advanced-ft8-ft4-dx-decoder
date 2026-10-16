@@ -3,8 +3,16 @@ dist/
 *.sqlite3*
 __pycache__/
 .DS_Store
+/AGENTS.md
+/.AGENT/
+/.codex/
+.env
+.env.*
+!.env.example
 resources/dreamed-ui/
 *.csv
 *.log
 *.pcm
 *.wav
+!third_party/js8call/media/tests/A_1_4.wav
+!third_party/js8call/media/tests/E_2_1.wav
