@@ -17,6 +17,7 @@ struct Arrival {std::string key;int64_t observedMs=0;};
 struct Snapshot {
  Stats stats;bool statsHistory=false,historyAll=false,tableMessages=false,tableCountries=false;std::vector<CountrySummary> countryTable;std::vector<Row> table,map;std::vector<Decode> details,hoverMessages;std::optional<Decode> hoverStation;
  std::vector<ExchangePath> paths;std::vector<CornerReception> cornerReceptions;std::string detailsCountry;
+ std::optional<Decode> detailSelection;
  std::vector<std::string> mapHeardCountries;
  std::vector<Arrival> arrivals;int64_t newestReceptionUtc=0;ActivityBearing direction;std::vector<Decode> directionStations;
  std::string csvPath,csvError;uint64_t csvBytes=0;bool csvCatchingUp=false;
@@ -29,6 +30,7 @@ struct Snapshot {
  std::string error,notice,alert,alertTone;uint64_t noticeRevision=0;int64_t alertUtc=0;bool alertSound=false;size_t pendingWrites=0,queued=0;uint64_t skipped=0,failures=0,decodedJobs=0;
  double lastDecodeMs=0;int helperPid=-1;bool decoding=false;
  std::string modeError;bool modeDecoding=false;size_t modeQueued=0;
+ std::string js8Error;bool js8Decoding=false;size_t js8Queued=0;
 };
 class Engine {
 public:
@@ -51,7 +53,7 @@ public:
  void invalidateAdditional();
  void hover(const Decode& station);
 private:
- void decodeLoop();void modeLoop();void storeLoop();void importText(Store& store);void publish(Store& store);
+ void decodeLoop();void modeLoop();void js8Loop();void storeLoop();void importText(Store& store);void publish(Store& store);
  void hideIgnored(const IgnoreTarget& target);
  bool manageSaved(Store& store);
  std::filesystem::path root_,worldFile_;Helper helper_;Point home_;
@@ -59,6 +61,7 @@ private:
  mutable std::mutex mutex_;std::condition_variable cv_;std::thread decoder_,writer_;std::atomic<bool> stopping_{false};
  std::deque<Job> jobs_;std::deque<Decode> writes_;std::shared_ptr<const Snapshot> snapshot_=std::make_shared<Snapshot>();
  Helper modeHelper_;std::thread modeDecoder_;std::deque<Job> modeJobs_;uint64_t modeContext_=1;std::atomic<bool> modeCancel_{false},modeDone_{false};
+ Helper js8Helper_;std::thread js8Decoder_;std::deque<Job> js8Jobs_;std::atomic<bool> js8Cancel_{false},js8Done_{false};
  Query table_,map_;uint64_t generation_=1;bool queryDirty_=true,active_=false,retry_=false,blocked_=false;
  std::optional<Decode> selection_;std::string selectionCountry_;int historyOffset_=0;bool selectionDirty_=false;
  std::optional<Decode> hovered_;
@@ -100,5 +103,6 @@ private:
  double progress_=0;uint64_t discontinuities_=0,samples_=0;
 };
 inline constexpr size_t additionalQueueLimit=32,additionalQueueBytes=96*1024*1024;
+inline constexpr size_t js8QueueLimit=16,js8QueueBytes=16*1024*1024;
 size_t queuedAudioBytes(const std::deque<Job>& jobs,const Job* extra=nullptr);
 }

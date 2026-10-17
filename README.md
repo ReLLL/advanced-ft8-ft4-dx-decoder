@@ -1,6 +1,6 @@
 # Advanced FT8/FT4/WSPR DX Decoder
 
-**FT8, FT4 and WSPR decoding, a DX map, and reception logging inside SDR++ and SDR++Brown for macOS.** Optional FST4, FST4W and Q65 reception uses the same workspace. See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
+**FT8, FT4 and WSPR decoding, a DX map, and reception logging inside SDR++ and SDR++Brown for macOS.** Optional FST4, FST4W, Q65 and receive-only JS8 reception uses the same workspace. See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
 
 Created by [ReLLL](https://github.com/ReLLL). Free software under GPL-3.0-or-later.
 
@@ -41,7 +41,7 @@ To find it yourself:
 
 The code identifies an area; the plugin calculates distances from its center. Six characters give a smaller area than four. `KM69` and `KM69xx` in the instructions are format examples; do not copy them as your location unless they actually match it.
 
-## What you can see in 1.0.39
+## What you can see in 1.0.45
 
 - **At a glance:** unique countries, unique stations, farthest distance with country, active decoding uptime, stations heard in the last five minutes, and the latest three calls with country, distance and receiver SNR. DX ACTIVITY BEARING summarizes recent distant reception.
 - **Three reception views:** Unique stations, All messages and Countries heard. Repeated messages stay visible in All messages; country summaries show distinct senders, mean distance/SNR and the last five senders. Each table remembers its layout and sort.
@@ -76,6 +76,12 @@ Capture waits for complete UTC sequences. In All, the progress bar follows the s
 
 Click a station row or use Up/Down in its table to select and highlight it on the map. Double-click a table row or click a map station to open details. Closing details keeps the station selected.
 
+### JS8 reception
+
+Enable **JS8** in **Modes...** or **Settings > Reception**. It starts off and remembers your choice. **Speed: All** receives Normal (15 s), Fast (10 s), Turbo / JS8 40 (6 s) and Slow (30 s); experimental JS8 60 is excluded. Tune a capture covering a JS8 dial preset, such as **7.078 MHz** or **14.078 MHz**. JS8 uses octagonal map markers and the existing tables, filters, home distances and history.
+
+The receive-only decoder and message parser come from pinned [JS8Call](https://github.com/js8call/js8call) source, developed by **Jordan Sherer KN4CRD**, **Allan Bazinet W6BAZ** and contributors, building on WSJT-family work. Longer messages appear as frames arrive and are marked **incomplete** until their final frame and any required checksum pass. Missing headers remain unattributed fragments; ordinary message text is never treated as proof of a sender or location. A separate bounded JS8 worker keeps its decoding and recovery apart from FT8/FT4. [JS8 behavior and limits](docs/MULTIMODE.md#js8-reception).
+
 ## Screenshots
 
 Live reception in SDR++Brown, showing the DX map, reception tables, country flags and waterfall notifications.
@@ -86,9 +92,9 @@ Live reception in SDR++Brown, showing the DX map, reception tables, country flag
 
 ## Read the numbers correctly
 
-Distance uses the great-circle path between your home grid center and a received station grid center. `*` before a distance marks recent cached grid evidence. A missing grid stays unknown; a callsign prefix identifies a DXCC entity rather than an exact transmitter location.
+Distance uses the great-circle path between your home grid center and a received station grid center. `*` before a distance marks recent cached grid evidence. **Approximate unknown distances based on country** is available in Settings > General and starts on. `[C]` marks a near-side country-grid estimate when normal grid evidence is unavailable. It works with existing and new visible receptions and stays separate from station positions, distance records and propagation bearings. Country-name variants are recognized, including European/Asiatic Russia and Turkey; these regional labels use the whole-country outline for this coarse estimate. Missing or ambiguous outlines stay unknown. A callsign prefix identifies a DXCC entity rather than an exact transmitter location. See the [distance explanation](docs/USER_GUIDE.md#colors-and-distance-evidence) for limits.
 
-**DX activity bearing** summarizes short-path bearings from home to the farthest recent stations. It describes observed reception activity, not measured arrival direction or a propagation forecast. An addressed message and an arc do not prove a completed contact.
+**DX activity bearing** and its compass follow the shared reception filters and the current session/history scope. They summarize short-path bearings from home to the farthest matching stations heard within the last 15 minutes; shorter selected windows and custom date bounds narrow that sample. It describes observed reception activity, not measured arrival direction or a propagation forecast. An addressed message and an arc do not prove a completed contact.
 
 [User guide](docs/USER_GUIDE.md) explains the columns, colors, settings, map cache, scientific limits and GridTracker setup. The same essentials are available in the plugin's **Help** dialog.
 

@@ -14,6 +14,14 @@ The adapted FT8/FT4 source also retains the copyright notices from its earlier W
 
 The plugin integrates with [SDR++Brown](https://github.com/sannysanoff/SDRPlusPlusBrown), pinned at `679f48deee5299a199d15d30e6e785fac6054896`. Its FT8/FT4 decoder contains adapted MSHV code and upstream author notices. GPL terms apply. The staging script applies FFT plan lifetime fixes, without changing decoder sensitivity or algorithms. Release assets include the staged corresponding source and upstream license notices.
 
+## JS8Call and its helper dependencies
+
+The receive-only JS8 helper uses unchanged decoder and Varicode source from [JS8Call](https://github.com/js8call/js8call), commit `a7ff1be0b389d287fdc56e2ea0d06962aa68127d`. Original notices credit Jordan Sherer KN4CRD, Allan Bazinet W6BAZ and other JS8Call/WSJT contributors. GPLv3 terms and per-file notices are retained in `third_party/js8call/`; `source-pin.json` records exact hashes. Upstream audio fixtures are retained for testing and are excluded from installed payloads.
+
+The helper statically links Qt Core 6.8.2 from the verified upstream qtbase source archive (SHA-256 `012043ce6d411e6e8a91fdc4e05e6bedcfa10fcb1347d3c33908f7fdd10dfe05`). GPLv3 terms are used for this GPL project. Qt and its bundled third-party notices ship in `COPYING.QT`; the corresponding-source archive includes the complete matching Qt source archive, source checksum and build recipe. Rebuilding and replacing the helper are permitted under those terms. The main host plugin does not link Qt.
+
+JS8Call's vendored Eigen headers retain MPL-2.0 and individual file notices. CRC++ retains its BSD 3-Clause license. `COPYING.JS8` accompanies the helper, alongside `js8-runtime.json` provenance. Boost headers use the Boost Software License 1.0; the host's FFTW library retains its own notices. No Qt or Homebrew installation is required to run the packaged helper.
+
 ## Mapbox Earcut
 
 `third_party/earcut/earcut.hpp` is the unmodified header from [Mapbox Earcut](https://github.com/mapbox/earcut.hpp), version 3.2.4, commit `177bd66b5338ab66f4e9ce8f3cca418b9463d809`. Its ISC license is included in `third_party/earcut/LICENSE`.

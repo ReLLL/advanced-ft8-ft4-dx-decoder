@@ -37,8 +37,8 @@ int main(){
   CHECK(dx::localDateTime(rows[0].decode.utc)=="2024-11-03 01:30:00 -05:00"&&dx::localDateTime(rows[1].decode.utc)=="2024-11-03 01:30:00 -04:00");
   auto folder=std::filesystem::temp_directory_path()/("dx-local-time-"+std::to_string(getpid()));CHECK(std::filesystem::create_directory(folder));TestFolderCleanup cleanup(folder);
   auto exported=folder/"export.csv";store.exportRows(sort,exported,true);auto read=[&](){std::ifstream in(exported);return std::string(std::istreambuf_iterator<char>(in),{});};auto messages=read();
-  CHECK(messages.find("LocalDateTime\n")!=std::string::npos&&messages.find("2024-11-03 01:30:00 -05:00")!=std::string::npos&&messages.find("2024-11-03 01:30:00 -04:00")!=std::string::npos);
-  sort.countries=true;store.exportRows(sort,exported,true);auto countries=read();CHECK(countries.find("LocatedSenders,LocalDateTime\n")!=std::string::npos&&countries.find("2024-11-03 01:30:00 -05:00")!=std::string::npos);
+  CHECK(messages.substr(0,messages.find('\n')).find("LocalDateTime")!=std::string::npos&&messages.find("2024-11-03 01:30:00 -05:00")!=std::string::npos&&messages.find("2024-11-03 01:30:00 -04:00")!=std::string::npos);
+  sort.countries=true;store.exportRows(sort,exported,true);auto countries=read();CHECK(countries.substr(0,countries.find('\n')).find("LocatedSenders,LocalDateTime")!=std::string::npos&&countries.find("2024-11-03 01:30:00 -05:00")!=std::string::npos);
  }
  zone("UTC");CHECK(dx::localDateTime(midnight)=="2024-01-01 00:00:00 +00:00");CHECK(dx::localDateTime(0)=="--");
  CHECK(dx::restoredDateTimeEpoch(repeated,"custom_since")==1730615400LL&&dx::restoredLocalDateTime(repeated,"custom_since")=="2024-11-03 06:30:00");

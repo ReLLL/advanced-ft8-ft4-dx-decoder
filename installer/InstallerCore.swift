@@ -30,12 +30,13 @@ struct PluginInstaller {
     static let module = "advanced_ft8_ft4_dx_decoder"
     static let names = ["dx_notebook.dylib", "dx_decoder", "world.geojson"]
     static let modeNames = ["dx_modes_decoder", "dx_wspr_decoder", "libgfortran.5.dylib", "libquadmath.0.dylib", "libgcc_s.1.1.dylib", "COPYING.RUNTIME", "COPYING.LIB", "mode-runtime.json"]
+    static let js8Names = ["dx_js8_decoder", "COPYING.JS8", "COPYING.QT", "js8-runtime.json"]
     let manager = FileManager.default
     let payload: URL
     let manifest: PayloadManifest
     var brownRunning: () throws -> Bool
     var checkpoint: (String) throws -> Void = { _ in }
-    var names: [String] { Self.names + (manifest.hostBundleID == "oorg.sdrpp.sdrpp" ? ["cty.dat"] : []) + (manifest.files["dx_modes_decoder"] != nil ? Self.modeNames : []) }
+    var names: [String] { Self.names + (manifest.hostBundleID == "oorg.sdrpp.sdrpp" ? ["cty.dat"] : []) + (manifest.files["dx_modes_decoder"] != nil ? Self.modeNames : []) + (manifest.files["dx_js8_decoder"] != nil ? Self.js8Names : []) }
 
     static func hash(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -180,7 +181,7 @@ struct PluginInstaller {
             guard Self.hash(try Data(contentsOf: destination)) == manifest.files[name] else {
                 throw InstallError.message("A copied file failed verification. Your settings were not changed.")
             }
-            try manager.setAttributes([.posixPermissions: name.hasSuffix(".dylib") || name == "dx_decoder" || name == "dx_modes_decoder" || name == "dx_wspr_decoder" ? 0o755 : 0o644], ofItemAtPath: destination.path)
+            try manager.setAttributes([.posixPermissions: name.hasSuffix(".dylib") || name == "dx_decoder" || name == "dx_modes_decoder" || name == "dx_wspr_decoder" || name == "dx_js8_decoder" ? 0o755 : 0o644], ofItemAtPath: destination.path)
         }
         let stagedConfig = stage.appendingPathComponent("config.json")
         try updated.write(to: stagedConfig)

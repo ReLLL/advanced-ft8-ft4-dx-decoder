@@ -42,7 +42,7 @@ Json Helper::decode(const Job& job,const std::atomic<bool>& stopping){
    for(const auto& part:job.audio){if(!part)throw std::runtime_error("Missing captured audio block");auto from=std::max(cursor,part->startSample),to=std::min(end,part->startSample+int64_t(part->pcm.size()));if(to<=from)continue;if(from!=cursor)throw std::runtime_error("Incomplete captured audio window");spans.push_back({part->pcm.data()+size_t(from-part->startSample),size_t(to-from)});cursor=to;}
    if(cursor!=end)throw std::runtime_error("Incomplete captured audio window");
   }
-  if(pid_<0)start();auto header=Json{{"id",job.id},{"utc_ms",job.utcMs},{"frequency",job.dial},{"mode",job.mode},{"period_ms",job.periodMs},{"submode",job.submode},{"samples",count}}.dump();uint32_t size=uint32_t(header.size());auto deadline=monotonicMs()+(isolated_?120000:20000);
+  if(pid_<0)start();auto header=Json{{"id",job.id},{"utc_ms",job.utcMs},{"frequency",job.dial},{"mode",job.mode},{"period_ms",job.periodMs},{"submode",job.submode},{"samples",count}}.dump();uint32_t size=uint32_t(header.size());auto deadline=monotonicMs()+(timeoutMs_>0?timeoutMs_:isolated_?120000:20000);
   transfer(input_,&size,4,true,deadline,stopping);transfer(input_,header.data(),size,true,deadline,stopping);
   if(spans.empty())transfer(input_,const_cast<int16_t*>(job.pcm.data()),job.pcm.size()*2,true,deadline,stopping);
   else for(const auto& span:spans)transfer(input_,const_cast<int16_t*>(span.first),span.second*2,true,deadline,stopping);

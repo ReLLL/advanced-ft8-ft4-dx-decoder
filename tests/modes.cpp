@@ -14,9 +14,9 @@ int main(){
   CHECK(mode.periodCount>0&&mode.periodCount<=mode.periodsMs.size());
   for(size_t i=0;i<mode.periodCount;i++)CHECK(dx::capturePeriodMs(mode.name,mode.periodsMs[i])==mode.periodsMs[i]);
   if(mode.name=="FT8"||mode.name=="FT4")CHECK(mode.available&&mode.marker==dx::MarkerShape::Circle&&!mode.beacon);
-  else{CHECK(mode.available==bool(DX_ADDITIONAL_MODES)&&mode.marker!=dx::MarkerShape::Circle);CHECK(extra.insert(mode.marker).second);}
+  else{CHECK(mode.available==bool(mode.name=="JS8"?DX_JS8:DX_ADDITIONAL_MODES)&&mode.marker!=dx::MarkerShape::Circle);CHECK(extra.insert(mode.marker).second);}
  }
- for(auto shape:extra){auto outline=dx::markerOutline(shape,6);CHECK(outline.count>=3&&outline.count<=6);double area=0;
+ for(auto shape:extra){auto outline=dx::markerOutline(shape,6);CHECK(outline.count>=3&&outline.count<=8);double area=0;
   for(int i=0;i<outline.count;i++){auto a=outline.points[i],b=outline.points[(i+1)%outline.count];CHECK(std::abs(std::hypot(a[0],a[1])-6)<1e-5);area+=a[0]*b[1]-a[1]*b[0];}CHECK(area>0);
  }
  CHECK(dx::markerOutline(dx::MarkerShape::Circle,6).count==0&&dx::markerOutline(dx::MarkerShape::Square,NAN).count==0);

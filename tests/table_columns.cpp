@@ -11,9 +11,9 @@ int main(){
  const int64_t midnight=1704067200;
  {dx::Store activity(":memory:");for(int seconds:{0,899,900,901,3600,-1}){dx::Decode d;d.utc=midnight-seconds;d.dial=7074000;d.mode="FT8";d.message="CQ K"+std::to_string(seconds+2)+"AAA FN42";CHECK(activity.insert(d,{39.5,33}));}
   for(auto visible:std::vector<dx::Query>{{},dx::Query{midnight-60,midnight},dx::Query{0,midnight-86400}}){
-   auto q=dx::recentActivityQuery(visible,midnight);CHECK(q.since==midnight-900&&q.until==midnight&&q.uniqueCalls&&!q.messages&&!q.countries);
-   auto rows=activity.rows(q);CHECK(rows.size()==3);for(const auto& row:rows)CHECK(row.decode.utc>=midnight-900&&row.decode.utc<=midnight);
-   q.filter.columnRanges[size_t(dx::ColumnMetric::MsgAge)].max=899;CHECK(activity.rows(q).size()==2);
+   auto q=dx::recentActivityQuery(visible,midnight);CHECK(q.since==std::max(visible.since,midnight-900)&&q.until==std::min(visible.until,midnight)&&q.uniqueCalls&&!q.messages&&!q.countries);
+   auto rows=activity.rows(q);CHECK(rows.size()==(visible.until<midnight?0u:visible.since?1u:3u));for(const auto& row:rows)CHECK(row.decode.utc>=q.since&&row.decode.utc<=q.until);
+   q.filter.columnRanges[size_t(dx::ColumnMetric::MsgAge)].max=899;CHECK(activity.rows(q).size()==(visible.until<midnight?0u:visible.since?1u:2u));
   }
  }
  CHECK(dx::ageText(midnight,midnight)=="0s ago"&&dx::ageText(midnight,midnight+1)=="1s ago");

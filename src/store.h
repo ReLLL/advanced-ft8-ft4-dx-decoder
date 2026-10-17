@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <cmath>
 namespace dx {
 constexpr int defaultHistoryLimit=100000;
 constexpr int64_t historyCheckIntervalMs=30*60*1000;
@@ -18,6 +19,8 @@ public:
  bool insert(Decode& d,Point home,const std::function<std::pair<std::string,std::string>(const std::string&)>& country={});
  std::vector<Row> rows(const Query& query,int offset=0,int limit=10000,int64_t* countOnly=nullptr);
  void mapLocations(std::vector<Row>& rows);
+ void countryDistances(bool enabled,Point home){countryDistances_=enabled;distanceHome_=home;}
+ void projectDistance(Decode& decode);
  bool loadCountryAreas(const std::filesystem::path& file){invalidateSession();return locationCheck_.load(file);}
  std::vector<Decode> history(const std::string& call,int64_t dial,const std::string& mode,int offset=0);
  std::vector<Decode> uniqueMessages(const Decode& station,const Query& view);
@@ -49,6 +52,9 @@ public:
  void unignoreAll();std::vector<std::string> ignoredCalls();bool ignored(const std::string& call);
 private:
  LocationCheck locationCheck_;
+ bool countryDistances_=false;Point distanceHome_{NAN,NAN};
+ std::optional<LocationCheck::CountryDistance> countryDistance(const std::string& country);
+ std::string distanceSql(bool payload=false)const;
  void ensureReceptionIds();void ensureEntities();void rebuildSummaries(bool stations=true);
  struct StatsCache {
   int64_t after=-1,since=0,cursor=0,dataVersion=-1,farthestId=0;

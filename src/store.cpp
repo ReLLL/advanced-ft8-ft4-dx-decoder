@@ -40,6 +40,7 @@ Store::Store(const std::filesystem::path& file){
  if(sqlite3_open_v2(file.c_str(),&db_,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_NOMUTEX,nullptr)!=SQLITE_OK){std::string error=sqlite3_errmsg(db_);sqlite3_close(db_);db_=nullptr;throw std::runtime_error(error);}
  sqlite3_busy_timeout(db_,2000);sqlite3_create_function(db_,"dx_match",2,SQLITE_UTF8|SQLITE_DETERMINISTIC,nullptr,sqlMatch,nullptr,nullptr);
  sqlite3_create_function(db_,"dx_band",1,SQLITE_UTF8|SQLITE_DETERMINISTIC,nullptr,sqlBand,nullptr,nullptr);
+ sqlite3_create_function(db_,"dx_country_distance",1,SQLITE_UTF8,this,[](sqlite3_context* c,int,sqlite3_value** v){try{auto* store=static_cast<Store*>(sqlite3_user_data(c));auto* country=sqlite3_value_text(v[0]);auto estimate=store->countryDistance(country?reinterpret_cast<const char*>(country):"");if(estimate)sqlite3_result_double(c,estimate->km);else sqlite3_result_null(c);}catch(const std::bad_alloc&){sqlite3_result_error_nomem(c);}},nullptr,nullptr);
  sqlite3_create_function(db_,"dx_location_mismatch",4,SQLITE_UTF8|SQLITE_DETERMINISTIC,this,[](sqlite3_context* c,int,sqlite3_value** v){try{auto string=[](sqlite3_value* value){const auto* s=sqlite3_value_text(value);return s?std::string(reinterpret_cast<const char*>(s)):std::string{};};auto* store=static_cast<Store*>(sqlite3_user_data(c));sqlite3_result_int(c,store->locationCheck_.mismatch(string(v[0]),string(v[1]),string(v[2]),sqlite3_value_double(v[3])));}catch(...){sqlite3_result_int(c,0);}},nullptr,nullptr);
  try{
  exec("PRAGMA auto_vacuum=INCREMENTAL;PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;"
@@ -100,7 +101,7 @@ int64_t Store::moderate(const IgnoreTarget& target,bool deleteRecords,bool ignor
 bool Store::insert(Decode& d,Point home,const std::function<std::pair<std::string,std::string>(const std::string&)>& country){
  // An old legacy file must never repopulate history that retention expired.
  if(d.source=="legacy"&&d.utc<=getSetting("retention_floor",int64_t(0)).get<int64_t>())return false;
- if(ignoredMessage(d.message))return false;d.identity=receptionMeaning(d.mode,d.message);auto& i=d.identity;if(ignored(i.transmitter))return false;
+ if(ignoredMessage(d.message))return false;d.countryDistanceGrid.clear();d.identity=receptionMeaning(d.mode,d.message);auto& i=d.identity;if(ignored(i.transmitter))return false;
  auto resolve=[&](std::string& value){std::smatch match;static const std::regex hash("<([0-2]):([0-9]{1,7})>");if(!std::regex_match(value,match,hash))return;int bits=match[1]=="0"?10:match[1]=="1"?12:22;uint32_t wanted=uint32_t(std::stoul(match[2]));
   auto s=prepare(db_,"SELECT DISTINCT call FROM decodes WHERE utc BETWEEN ? AND ? AND call!='' AND call NOT LIKE '<%'");sqlite3_bind_int64(s.get(),1,d.utc-hashMatchWindowSeconds);sqlite3_bind_int64(s.get(),2,d.utc);std::string candidate;bool ambiguous=false;
   while(step(db_,s.get())==SQLITE_ROW){auto call=column(s.get(),0);if(callHash(call,bits)==wanted){if(!candidate.empty()&&candidate!=call)ambiguous=true;candidate=call;}}
@@ -160,12 +161,12 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
  if(f.cqOnly)where+=" AND type='CQ'";if(f.hasGrid)where+=" AND grid!=''";if(f.hasTarget)where+=" AND called NOT IN ('','CQ','QRZ','DE')";if(f.first)where+=" AND json_extract(payload,'$.first_call')=1";
  if(f.removeLikelyFalse)where+=" AND NOT dx_location_mismatch(country,grid,call,"+std::to_string(std::isfinite(f.falseToleranceKm)?std::clamp(f.falseToleranceKm,0.,2000.):300.)+")";
  if(f.messageKind==MessageKind::GeneralCall)where+=" AND called IN ('CQ','QRZ')";
- if(f.messageKind==MessageKind::Exchange)where+=" AND call!='' AND called NOT IN ('','CQ','QRZ','DE')";
- if(f.messageKind==MessageKind::Other)where+=" AND type!='Beacon' AND called NOT IN ('CQ','QRZ') AND (call='' OR called IN ('','DE'))";
- if(f.messageKind==MessageKind::Beacon)where+=" AND type='Beacon'";
+ if(f.messageKind==MessageKind::Exchange)where+=" AND call!='' AND called NOT IN ('','CQ','QRZ','DE') AND called NOT LIKE '@%' AND type!='Heartbeat'";
+ if(f.messageKind==MessageKind::Other)where+=" AND type NOT IN ('Beacon','Heartbeat') AND called NOT IN ('CQ','QRZ') AND (call='' OR called IN ('','DE') OR called LIKE '@%')";
+ if(f.messageKind==MessageKind::Beacon)where+=" AND type IN ('Beacon','Heartbeat')";
  where+=" AND snr>="+std::to_string(f.minSnr);
  if(f.maxDt<30)where+=" AND abs(dt)<="+std::to_string(f.maxDt);
- if(f.minKm>0||f.maxKm<40080)where+=" AND km BETWEEN "+std::to_string(f.minKm)+" AND "+std::to_string(f.maxKm);
+ const auto distance=distanceSql();if(f.minKm>0||f.maxKm<40080)where+=" AND "+distance+" BETWEEN "+std::to_string(f.minKm)+" AND "+std::to_string(f.maxKm);
  const bool cached=q.since==0&&q.until==INT64_MAX&&q.afterRowId==0&&empty&&!q.messages&&!q.uniqueCalls;
  const bool entityCached=q.since==0&&q.until==INT64_MAX&&q.afterRowId==0&&empty&&!q.messages&&q.uniqueCalls;
  if(countOnly&&empty&&q.messages&&q.since==0&&q.until==INT64_MAX&&q.afterRowId==0){*countOnly=savedMessageCount();return {};}
@@ -174,6 +175,7 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
  const char* indexed[]={"utc","call","country","km","snr","grid","mode","band","dial","","dt","","","called","type","message","","","utc",""};
  if(sort<20&&*indexed[sort]&&(!cached||sort==0||sort==1||sort==6||sort==8||sort==18))order=indexed[sort];
  if(sort==7)order="dx_band(dial)";if(sort==13)order="CASE WHEN json_extract(payload,'$.called') IN ('','CQ','QRZ','DE') THEN NULL ELSE json_extract(payload,'$.called') END";
+ if(sort==3)order=distanceSql(cached);
  std::string sql;
  const std::string group=q.uniqueCalls?"(call=''),CASE WHEN call='' THEN message ELSE call END":"CASE WHEN call='' THEN key ELSE call END,dial,mode";
  if(entityCached)sql="SELECT d.*,e.total AS row_count FROM entities AS e JOIN decodes AS d ON d.reception_id=e.last_id WHERE e.kind IN ('call','unknown')";
@@ -193,7 +195,7 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
   auto first="coalesce((SELECT min(first.utc) FROM decodes AS first INDEXED BY by_call_message WHERE first.call=shown.call AND first.message=json_extract(shown.payload,'$.message')"+cutoff+"),shown.utc)";
   auto station="(SELECT min(first.utc) FROM decodes AS first INDEXED BY by_call_time WHERE first.call=shown.call AND shown.call!='' AND shown.call NOT LIKE '<%'"+cutoff+")";
   if(f.hasColumnRanges()){
-   auto reference=std::to_string(q.referenceUtc?q.referenceUtc:int64_t(time(nullptr)));std::array<std::string,10> metrics={"snr","km","dial/1000000.0","json_extract(payload,'$.audio_hz')","dt","json_extract(payload,'$.bearing')","row_count","max(0,"+reference+"-utc)","max(0,"+reference+"-first_heard)","max(0,"+reference+"-station_first_heard)"};
+   auto reference=std::to_string(q.referenceUtc?q.referenceUtc:int64_t(time(nullptr)));std::array<std::string,10> metrics={"snr",distance,"dial/1000000.0","json_extract(payload,'$.audio_hz')","dt","json_extract(payload,'$.bearing')","row_count","max(0,"+reference+"-utc)","max(0,"+reference+"-first_heard)","max(0,"+reference+"-station_first_heard)"};
    auto number=[](double value){std::ostringstream out;out<<std::setprecision(17)<<value;return out.str();};std::string conditions="1";for(size_t i=0;i<metrics.size();i++){const auto& r=f.columnRanges[i];if(r.min)conditions+=std::isfinite(*r.min)?" AND ("+metrics[i]+")>="+number(*r.min):" AND 0";if(r.max)conditions+=std::isfinite(*r.max)?" AND ("+metrics[i]+")<="+number(*r.max):" AND 0";}
    sql="WITH shown AS ("+sql+"),enriched AS (SELECT shown.*,"+first+" AS first_heard,"+station+" AS station_first_heard FROM shown) SELECT "+(countOnly?"count(*)":"payload,row_count,first_heard,station_first_heard")+" FROM enriched WHERE "+conditions;
    if(!countOnly)sql+=" ORDER BY ("+order+" IS NULL) ASC,"+order+(q.descending?" DESC":" ASC")+",utc DESC,"+(q.messages?"reception_order DESC,":"")+"call ASC,dial ASC,mode ASC LIMIT ? OFFSET ?";
@@ -208,7 +210,7 @@ std::vector<Row> Store::rows(const Query& q,int offset,int limit,int64_t* countO
  if(!cached&&!entityCached){sqlite3_bind_int64(s.get(),pos++,q.since);sqlite3_bind_int64(s.get(),pos++,q.until);if(q.afterRowId>0)sqlite3_bind_int64(s.get(),pos++,q.afterRowId);for(const auto& v:values)bindText(s.get(),pos++,v);}
  if(countOnly){*countOnly=step(db_,s.get())==SQLITE_ROW?sqlite3_column_int64(s.get(),0):0;return {};}
  sqlite3_bind_int(s.get(),pos++,limit);sqlite3_bind_int(s.get(),pos,offset);std::vector<Row> rows;
- while(step(db_,s.get())==SQLITE_ROW){auto d=Decode::fromJson(Json::parse(column(s.get(),0)));rows.push_back({std::move(d),sqlite3_column_int64(s.get(),1),sqlite3_column_int64(s.get(),2),sqlite3_column_int64(s.get(),3)});}return rows;
+ while(step(db_,s.get())==SQLITE_ROW){auto d=Decode::fromJson(Json::parse(column(s.get(),0)));projectDistance(d);rows.push_back({std::move(d),sqlite3_column_int64(s.get(),1),sqlite3_column_int64(s.get(),2),sqlite3_column_int64(s.get(),3)});}return rows;
 }
 void Store::mapLocations(std::vector<Row>& rows){
  // Display evidence only: never rewrite the reception, its distance or logs.
@@ -231,9 +233,9 @@ int64_t Store::importBridge(const std::filesystem::path& path,Point home,const s
  while(step(source,s.get())==SQLITE_ROW){auto j=Json::parse(column(s.get(),1));j["source"]="legacy";auto d=Decode::fromJson(j);if(insert(d,home,country))++added;cursor=sqlite3_column_int64(s.get(),0);}
  setSetting("import_bridge_cursor",cursor);return added;
 }
-void Store::exportRows(const Query& q,const std::filesystem::path& path,bool csv){if(q.countries){auto latest=q;latest.countries=false;latest.uniqueCalls=true;latest.messages=false;latest.sort=0;auto summaries=countrySummaries(rows(latest),q.sort,q.descending);std::ofstream out(path);if(!out)throw std::runtime_error("Export file unavailable");Json data=Json::array();if(csv)out<<"Country,Stations,AverageKm,AverageSNRdB,Last5Senders,LastHeardUnixUTC,LocatedSenders,LocalDateTime\n";for(const auto& country:summaries){if(csv)out<<csvField(country.country)<<','<<country.stations<<','<<(country.averageKm?std::to_string(*country.averageKm):"")<<','<<country.averageSnr<<','<<csvField(senderList(country))<<','<<country.lastUtc<<','<<country.distanceSamples<<','<<csvField(localDateTime(country.lastUtc))<<'\n';else{Json senders=Json::array();for(const auto& sender:country.latestSenders)senders.push_back(sender.identity.transmitter);data.push_back({{"country",country.country},{"stations",country.stations},{"average_km",country.averageKm?Json(*country.averageKm):Json(nullptr)},{"average_snr_db",country.averageSnr},{"last_5_senders",senders},{"last_heard_utc",country.lastUtc},{"located_senders",country.distanceSamples}});}}if(!csv)out<<data.dump(2)<<'\n';if(!out)throw std::runtime_error("Export write failed");return;}
-std::ofstream file(path);if(!file)throw std::runtime_error("Export file unavailable");if(csv)file<<"UTC,Call,Called,Country,Grid,Mode,DialHz,AudioHz,SNRdB,DT,ApproxKm,Message,LocalDateTime\n";else file<<"[\n";
- int offset=0;bool comma=false;for(;;){auto page=rows(q,offset,1000);if(page.empty())break;for(auto& row:page){auto& d=row.decode;if(csv)file<<d.utc<<','<<csvField(d.identity.transmitter)<<','<<csvField(d.identity.called)<<','<<csvField(d.country)<<','<<csvField(d.identity.grid)<<','<<d.mode<<','<<d.dial<<','<<d.audio<<','<<d.snr<<','<<(d.dt?std::to_string(*d.dt):"")<<','<<(d.km?std::to_string(*d.km):"")<<','<<csvField(d.message)<<','<<csvField(localDateTime(d.utc))<<'\n';else{if(comma)file<<",\n";file<<d.json().dump();comma=true;}}offset+=int(page.size());}if(!csv)file<<"\n]\n";if(!file)throw std::runtime_error("Export write failed");}
+void Store::exportRows(const Query& q,const std::filesystem::path& path,bool csv){if(q.countries){auto latest=q;latest.countries=false;latest.uniqueCalls=true;latest.messages=false;latest.sort=0;auto summaries=countrySummaries(rows(latest),q.sort,q.descending);std::ofstream out(path);if(!out)throw std::runtime_error("Export file unavailable");Json data=Json::array();if(csv)out<<"Country,Stations,AverageKm,AverageSNRdB,Last5Senders,LastHeardUnixUTC,LocatedSenders,LocalDateTime,CountryEstimatedSenders\n";for(const auto& country:summaries){if(csv)out<<csvField(country.country)<<','<<country.stations<<','<<(country.averageKm?std::to_string(*country.averageKm):"")<<','<<country.averageSnr<<','<<csvField(senderList(country))<<','<<country.lastUtc<<','<<(country.distanceSamples-country.countryEstimates)<<','<<csvField(localDateTime(country.lastUtc))<<','<<country.countryEstimates<<'\n';else{Json senders=Json::array();for(const auto& sender:country.latestSenders)senders.push_back(sender.identity.transmitter);data.push_back({{"country",country.country},{"stations",country.stations},{"average_km",country.averageKm?Json(*country.averageKm):Json(nullptr)},{"average_snr_db",country.averageSnr},{"last_5_senders",senders},{"last_heard_utc",country.lastUtc},{"located_senders",country.distanceSamples-country.countryEstimates},{"country_estimated_senders",country.countryEstimates}});}}if(!csv)out<<data.dump(2)<<'\n';if(!out)throw std::runtime_error("Export write failed");return;}
+std::ofstream file(path);if(!file)throw std::runtime_error("Export file unavailable");if(csv)file<<"UTC,Call,Called,Country,Grid,Mode,DialHz,AudioHz,SNRdB,DT,ApproxKm,Message,LocalDateTime,DistanceSource,CountryEstimateGrid\n";else file<<"[\n";
+ int offset=0;bool comma=false;for(;;){auto page=rows(q,offset,1000);if(page.empty())break;for(auto& row:page){auto& d=row.decode;if(csv)file<<d.utc<<','<<csvField(d.identity.transmitter)<<','<<csvField(d.identity.called)<<','<<csvField(d.country)<<','<<csvField(d.identity.grid)<<','<<d.mode<<','<<d.dial<<','<<d.audio<<','<<d.snr<<','<<(d.dt?std::to_string(*d.dt):"")<<','<<(d.km?std::to_string(*d.km):"")<<','<<csvField(d.message)<<','<<csvField(localDateTime(d.utc))<<','<<csvField(!d.countryDistanceGrid.empty()?"country":d.gridSource)<<','<<csvField(d.countryDistanceGrid)<<'\n';else{if(comma)file<<",\n";file<<d.json().dump();comma=true;}}offset+=int(page.size());}if(!csv)file<<"\n]\n";if(!file)throw std::runtime_error("Export write failed");}
 void Store::rebaseDistances(Point home){
  auto origin=std::isfinite(home.lat)&&std::isfinite(home.lon)?Json::array({home.lat,home.lon}):Json(nullptr);if(getSetting("distance_origin",Json(nullptr))==origin)return;
  invalidateSession();exec("BEGIN IMMEDIATE");try{

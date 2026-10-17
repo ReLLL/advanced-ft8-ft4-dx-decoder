@@ -9,8 +9,12 @@ public:
  bool load(const std::filesystem::path& file);
  bool mismatch(const std::string& country,const std::string& grid,const std::string& call,double toleranceKm=300);
  bool ready()const{return !areas_.empty();}
+ struct CountryDistance {double km=0;std::string grid;};
+ std::optional<CountryDistance> nearestCountryGrid(const std::string& country,Point home);
 private:
  struct Area {std::vector<std::vector<std::vector<Point>>> polygons;std::vector<std::pair<Point,Point>> bounds;};
  std::vector<Area> areas_;std::map<std::string,size_t> keys_;std::map<std::string,bool> cache_;
+ std::map<std::string,size_t> distanceKeys_;
+ std::map<std::string,std::optional<CountryDistance>> distances_;
 };
 }

@@ -16,25 +16,27 @@ void DXNotebook::details(float height){
  if(ImGui::BeginTable("details_heading",2,ImGuiTableFlags_SizingStretchProp)){
   ImGui::TableSetupColumn("Station",ImGuiTableColumnFlags_WidthStretch);ImGui::TableSetupColumn("Close",ImGuiTableColumnFlags_WidthFixed,ImGui::CalcTextSize("Close details").x+ImGui::GetStyle().FramePadding.x*2);
   ImGui::TableNextColumn();
-  if(!countryView){const auto& d=*selected_;ImGui::TextColored(senderColor,"%s",d.identity.transmitter.empty()?"Unresolved sender":d.identity.transmitter.c_str());ImGui::SameLine(0,14);}
+  if(!countryView){const auto& d=snapshot->detailSelection&&snapshot->detailSelection->key()==selected_->key()?*snapshot->detailSelection:*selected_;ImGui::TextColored(senderColor,"%s",d.identity.transmitter.empty()?"Unresolved sender":d.identity.transmitter.c_str());ImGui::SameLine(0,14);}
   const auto& name=countryView?selectedCountry_:selected_->country;countryFlag(name);ImGui::TextColored(countryColor,"%s",name.empty()?"Unknown country":name.c_str());
   ImGui::TableNextColumn();if(ImGui::SmallButton("Close details")){ImGui::EndTable();ImGui::EndChild();detailsOpen_=false;engine_->selectCountry("");save();return;}ImGui::EndTable();
  }
  if(countryView)ImGui::TextDisabled("All matching receptions | newest first | repeats included");
  else{
-  const auto& d=*selected_;
+  const auto& d=snapshot->detailSelection&&snapshot->detailSelection->key()==selected_->key()?*snapshot->detailSelection:*selected_;
   if(ImGui::BeginTable("details_fields",3,ImGuiTableFlags_SizingStretchSame)){
    auto target=dx::targetCall(d.identity);field("Target",target.empty()?(dx::messageKind(d.identity)==dx::MessageKind::GeneralCall?"General call":"--"):target,senderColor);
-   char number[96];if(d.km){std::snprintf(number,sizeof(number),"%s%s",d.gridSource=="cached"?"* ":"",dx::distanceSummary(*d.km,distanceMiles_).c_str());std::string value=number;if(d.bearing){std::snprintf(number,sizeof(number)," | %.0f deg | %s",std::fmod(std::round(*d.bearing),360.),dx::compassDirection(*d.bearing).c_str());value+=number;}field("Distance / bearing",value,distanceColor);}else field("Distance / bearing",std::string("-- ")+dx::distanceUnit(distanceMiles_)+" (no received grid)",distanceColor);
+   char number[96];if(d.km){std::snprintf(number,sizeof(number),"%s%s",dx::distancePrefix(d).c_str(),dx::distanceSummary(*d.km,distanceMiles_).c_str());std::string value=number;if(d.bearing){std::snprintf(number,sizeof(number)," | %.0f deg | %s",std::fmod(std::round(*d.bearing),360.),dx::compassDirection(*d.bearing).c_str());value+=number;}field("Distance / bearing",value,distanceColor);}else field("Distance / bearing",std::string("-- ")+dx::distanceUnit(distanceMiles_)+" (no received grid)",distanceColor);
    std::snprintf(number,sizeof(number),"%+d dB SNR | %d Hz audio",d.snr,d.audio);field("Received signal",number,signalColor(d.snr));
    field("Received",dx::localDateTime(d.utc),messageColor);std::snprintf(number,sizeof(number),"%s | %s | %.6f MHz",d.mode.c_str(),dx::bandName(d.dial).c_str(),d.dial/1e6);field("Mode / band / dial",number,modeColor);
    std::string grid=d.identity.grid.empty()?"--":d.identity.grid;if(d.dt){std::snprintf(number,sizeof(number)," | DT %+.1f s",*d.dt);grid+=number;}field("Grid / timing",grid,modeColor);ImGui::EndTable();
   }
   ImGui::PushTextWrapPos(0);ImGui::TextColored(messageColor,"\"%s\"",d.message.c_str());ImGui::PopTextWrapPos();
   if(d.periodMs)ImGui::TextColored(modeColor,"Sequence: %d s%s",d.periodMs/1000,d.mode=="Q65"?(std::string(" | Q65-")+char('A'+std::clamp(d.submode,0,4))).c_str():"");if(d.txPowerDbm)ImGui::TextColored(distanceColor,"Transmitter power: %d dBm (%.3g W) | reported by sender",*d.txPowerDbm,std::pow(10.,(*d.txPowerDbm-30)/10.));
+  if(d.mode=="JS8")ImGui::TextColored(modeColor,"JS8: %s | %s",d.periodMs==6000?"Turbo / JS8 40":d.periodMs==10000?"Fast":d.periodMs==30000?"Slow":"Normal",d.messageComplete?"Complete message":"Incomplete reception; raw frames retained");
+  if(!d.countryDistanceGrid.empty())ImGui::TextWrapped("[C] Country estimate: home to grid %s in %s. Actual station distance may be much greater.",d.countryDistanceGrid.c_str(),d.country.c_str());
   ImGui::TextDisabled("Source: %s | Identity: %s | Grid: %s",d.source.c_str(),d.identitySource.c_str(),d.gridSource.empty()?"unavailable":d.gridSource.c_str());ImGui::Separator();
  }
- ImGui::TextDisabled("Distances: %s",dx::distanceUnit(distanceMiles_));
+ ImGui::TextDisabled("Distances: %s%s",dx::distanceUnit(distanceMiles_),approximateCountryDistances_?" | [C] country estimate":"");
  const auto menuId=ImGui::GetID("details_station_actions");
  if(snapshot->detailsCountry!=selectedCountry_){ImGui::TextDisabled("Loading receptions...");ImGui::EndChild();return;}
  if(snapshot->details.empty())ImGui::TextDisabled("No matching receptions in this view.");
@@ -46,7 +48,7 @@ void DXNotebook::details(float height){
    ImGui::TableNextColumn();ImGui::TextColored(senderColor,"%s",h.identity.transmitter.empty()?"--":h.identity.transmitter.c_str());ImGui::TableNextColumn();auto target=dx::targetCall(h.identity);ImGui::TextColored(senderColor,"%s",target.empty()?"--":target.c_str());
    ImGui::TableNextColumn();countryFlag(h.country);ImGui::TextColored(countryColor,"%s",h.country.empty()?"Unknown":h.country.c_str());ImGui::TableNextColumn();ImGui::TextColored(modeColor,"%s",h.identity.grid.c_str());
    ImGui::TableNextColumn();char number[32];std::snprintf(number,sizeof(number),"%+d",h.snr);right(number,signalColor(h.snr));if(ImGui::IsItemHovered())ImGui::SetTooltip("Receiver SNR: %+d dB | Audio: %d Hz | DT: %+.1f s",h.snr,h.audio,h.dt.value_or(0));
-   ImGui::TableNextColumn();if(h.km)std::snprintf(number,sizeof(number),"%s%.0f",h.gridSource=="cached"?"* ":"",dx::distanceDisplay(*h.km,distanceMiles_));else std::snprintf(number,sizeof(number),"--");right(number,distanceColor);
+   ImGui::TableNextColumn();if(h.km)std::snprintf(number,sizeof(number),"%s%.0f",dx::distancePrefix(h).c_str(),dx::distanceDisplay(*h.km,distanceMiles_));else std::snprintf(number,sizeof(number),"--");right(number,distanceColor);
    ImGui::TableNextColumn();ImGui::TextColored(modeColor,"%s / %s",h.mode.c_str(),dx::bandName(h.dial).c_str());ImGui::TableNextColumn();ImGui::TextColored(messageColor,"\"%s\"",h.message.c_str());if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",h.message.c_str());
    ImGui::TableNextColumn();ImGui::TextDisabled("%s",h.source.c_str());ImGui::PopID();
   }ImGui::EndTable();

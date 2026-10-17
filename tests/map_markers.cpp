@@ -25,7 +25,7 @@ int main(){
   ImDrawList previous(ImGui::GetDrawListSharedData()),next(ImGui::GetDrawListSharedData());prepare(previous);prepare(next);
   previous.AddCircle({64,64},8,IM_COL32(242,196,114,255),16,1.8f);dx::drawModeMarker(&next,mode,{64,64},8,IM_COL32(242,196,114,255),false);CHECK(same(previous,next));
  }
- for(const auto* mode:{"WSPR","FST4","FST4W","Q65"}){
+ for(const auto* mode:{"WSPR","FST4","FST4W","Q65","JS8"}){
   ImDrawList marker(ImGui::GetDrawListSharedData());prepare(marker);dx::drawModeMarker(&marker,mode,{64,64},5,IM_COL32_WHITE);CHECK(marker.VtxBuffer.Size>0&&marker.IdxBuffer.Size>0);
  }
  ImGui::EndFrame();ImGui::DestroyContext();std::cout<<"FT8/FT4 marker geometry unchanged; new mode markers render in native ImGui\n";return 0;

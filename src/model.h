@@ -54,13 +54,15 @@ struct Decode {
  int64_t utc=0,dial=0,slotMs=0; int audio=0,snr=0;
  std::optional<double> dt; std::string mode,message,raw,source="live",country,continent;
  Meaning identity; std::optional<Point> position; std::optional<double> km,bearing;
- int periodMs=0,submode=-1,averagedIntervals=1;std::optional<int> txPowerDbm;
+ int periodMs=0,submode=-1,averagedIntervals=1;std::optional<int> txPowerDbm;bool messageComplete=true;
  std::string gridSource; int64_t gridUtc=0; bool firstCall=false,firstGrid=false,firstCountry=false,distanceRecord=false;
  std::string identitySource="literal";
+ std::string countryDistanceGrid; // View-only estimate; never a received grid.
  Json json() const; static Decode fromJson(const Json& j);
  std::string key() const;
 };
 struct IgnoreTarget {std::string value;bool message=false;bool matches(const Decode& decode)const;};
+std::string distancePrefix(const Decode& decode);
 std::optional<IgnoreTarget> ignoreTarget(const Decode& decode);
 struct Filter {
  std::string source,search,call,called,prefix,country,continent,grid,band,mode,frequency,text,type;

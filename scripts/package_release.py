@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import plistlib
 from pathlib import Path
 import re
 import shutil
@@ -15,8 +16,8 @@ from mode_payload import mode_files, NATIVE_BINARIES
 from stage_runtime_sources import prepare as prepare_runtime_sources
 
 ROOT = Path(__file__).resolve().parents[1]
-PUBLIC_FILES = ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "CMakeLists.txt", ".gitignore", "AGENTS.md")
-SOURCE_DIRS = ("src", "scripts", "tests", "docs", "installer", "cmake", "third_party/earcut", "third_party/wsjtx")
+PUBLIC_FILES = ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "CMakeLists.txt", ".gitignore")
+SOURCE_DIRS = ("src", "scripts", "tests", "docs", "installer", "cmake", "third_party/earcut", "third_party/wsjtx", "third_party/js8call")
 
 
 def notarize(path, profile):
@@ -48,6 +49,27 @@ def anonymous_owner(info):
     return info
 
 
+def verify_disk(path):
+    result = subprocess.run(["hdiutil", "verify", str(path)], capture_output=True, text=True)
+    if result.returncode and "Resource temporarily unavailable" in result.stderr:
+        # macOS can leave this newly created APFS image attached after create.
+        # Detach only our exact output image; never touch other mounted disks.
+        info = plistlib.loads(subprocess.check_output(["hdiutil", "info", "-plist"]))
+        for item in info.get("images", []):
+            if item.get("image-path") != str(path.resolve()):
+                continue
+            devices = [part.get("dev-entry", "") for part in item.get("system-entities", [])]
+            device = next((value for value in devices if re.fullmatch(r"/dev/disk[0-9]+", value)), None)
+            if device:
+                subprocess.run(["hdiutil", "detach", device], check=True)
+                result = subprocess.run(["hdiutil", "verify", str(path)], capture_output=True, text=True)
+            break
+    print(result.stdout, end="", flush=True)
+    if result.stderr:
+        print(result.stderr, end="", flush=True)
+    result.check_returncode()
+
+
 def source_files():
     for name in PUBLIC_FILES:
         yield ROOT / name
@@ -63,6 +85,11 @@ def source_files():
         for path in sorted(runtime_sources.iterdir()):
             if path.is_file() and not path.name.endswith(".partial"):
                 yield path
+    js8_runtime = ROOT / "build-js8-runtime"
+    if (js8_runtime / "complete.json").exists():
+        yield js8_runtime / "complete.json"
+        for path in sorted(js8_runtime.glob("qtbase-*.tar.xz")):
+            yield path
 
 
 def main():
@@ -110,7 +137,7 @@ def main():
                 strings = subprocess.check_output(["strings", str(target)])
                 if b"/Users/" in strings:
                     raise ValueError("Local user path in release binary")
-                sign(target, args.signing_identity, helper=binary in ("dx_decoder", "dx_modes_decoder", "dx_wspr_decoder"))
+                sign(target, args.signing_identity, helper=binary in ("dx_decoder", "dx_modes_decoder", "dx_wspr_decoder", "dx_js8_decoder"))
             shutil.copyfile(build / "dx_notebook.host.json", package / folder / "dx_notebook.host.json")
         app = build_installer(package, version, args.signing_identity, args.brown_app, args.sdrpp_app if args.sdrpp_build else None)
         if args.notary_profile:
@@ -143,7 +170,7 @@ def main():
         if args.notary_profile:
             sign(disk, args.signing_identity)
             notarize(disk, args.notary_profile)
-        subprocess.run(["hdiutil", "verify", str(disk)], check=True)
+        verify_disk(disk)
     source = output / (name + "-corresponding-source.tar.gz")
     with tarfile.open(source, "w:gz") as bundle:
         for path in source_files():

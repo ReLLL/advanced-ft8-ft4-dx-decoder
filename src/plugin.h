@@ -32,7 +32,7 @@ struct DXChannel {
  DXChannel(DXNotebook*,dx::Preset,double center);~DXChannel();
  static void audio(dsp::stereo_t*,int,void*);
 };
-struct MapView {double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true,snrColors=true;float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;};
+struct MapView {double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true,snrColors=true,hideHome=false;float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;};
 class DXNotebook:public ModuleManager::Instance {
 public:
  explicit DXNotebook(std::string name);~DXNotebook();void postInit()override{}
@@ -55,7 +55,7 @@ private:
 #endif
  void cornerNotifications(CornerBounds args);
  unsigned int countryFlagIcon(const std::string& country);void countryFlag(const std::string& country);unsigned int trophyTexture();
- bool cornerEnabled_=true,cornerVisible_=false,distanceMiles_=false;int cornerSeconds_=10;ImVec2 cornerMin_,cornerMax_;std::map<std::string,std::string> flagCodes_;
+ bool cornerEnabled_=true,cornerVisible_=false,distanceMiles_=false,approximateCountryDistances_=true;int cornerSeconds_=10;ImVec2 cornerMin_,cornerMax_;std::map<std::string,std::string> flagCodes_;
  std::map<std::string,unsigned int> cornerIcons_;std::map<std::string,std::pair<std::string,int64_t>> cornerChanges_;
 #if DX_HOST_BROWN
  EventHandler<ImGui::WaterFall::WaterfallDrawArgs> cornerHandler_;

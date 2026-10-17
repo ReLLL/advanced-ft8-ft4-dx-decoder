@@ -1,5 +1,6 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "gridtracker.h"
+#include "temporary_folder.h"
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -18,7 +19,7 @@ struct Reader {
 int main(int argc,char** argv){
  int receiver=socket(AF_INET,SOCK_DGRAM,0);CHECK(receiver>=0);sockaddr_in local{};local.sin_family=AF_INET;local.sin_addr.s_addr=htonl(INADDR_LOOPBACK);CHECK(bind(receiver,reinterpret_cast<sockaddr*>(&local),sizeof(local))==0);socklen_t length=sizeof(local);CHECK(getsockname(receiver,reinterpret_cast<sockaddr*>(&local),&length)==0);CHECK(fcntl(receiver,F_SETFL,O_NONBLOCK)==0);
  sockaddr_in sender{};auto read=[&]{std::vector<dx::wsjt::Packet> packets;uint8_t bytes[4096];pollfd ready{receiver,POLLIN,0};while(poll(&ready,1,10)>0){socklen_t size=sizeof(sender);auto n=recvfrom(receiver,bytes,sizeof(bytes),0,reinterpret_cast<sockaddr*>(&sender),&size);if(n<0)break;packets.emplace_back(bytes,bytes+n);}return packets;};
- auto folder=std::filesystem::temp_directory_path()/("dx-gridtracker-"+std::to_string(getpid()));std::filesystem::create_directory(folder);dx::Store store(folder/"history.sqlite3");int64_t now=1800000100;dx::Decode d;d.utc=now-60;d.dial=14074000;d.mode="FT8";d.snr=-17;d.dt=.35;d.audio=1245;d.message="CQ K1ABC FN42";
+ auto pattern=(std::filesystem::temp_directory_path()/"dx-gridtracker-XXXXXX").string();CHECK(mkdtemp(pattern.data()));std::filesystem::path folder=pattern;TestFolderCleanup cleanup(folder);dx::Store store(folder/"history.sqlite3");int64_t now=1800000100;dx::Decode d;d.utc=now-60;d.dial=14074000;d.mode="FT8";d.snr=-17;d.dt=.35;d.audio=1245;d.message="CQ K1ABC FN42";
  auto insert=[&](dx::Decode row){return store.insert(row,{39,33},[](const std::string&){return std::make_pair("United States","NA");});};CHECK(insert(d));auto ft4=d;ft4.mode="FT4";ft4.dial=14080000;CHECK(insert(ft4));auto legacy=d;legacy.source="legacy";legacy.audio++;CHECK(insert(legacy));auto recording=d;recording.source="replay";recording.audio+=2;CHECK(insert(recording));auto yesterday=d;yesterday.utc=now/86400*86400-1;CHECK(insert(yesterday));
  dx::GridTracker client;dx::GridTrackerContext context;context.channels={{d.dial,d.mode},{ft4.dial,ft4.mode}};context.grid="KM69";dx::Json options={{"address","127.0.0.1"},{"port",ntohs(local.sin_port)}};
  client.tick(store,options,context,true,now,10000);CHECK(read().empty()&&!client.state().enabled);options["enabled"]=true;client.tick(store,options,context,true,now,10100);auto packets=read();int decodes=0;std::set<std::string> ids;

@@ -6,7 +6,7 @@ import Darwin
     static func check(_ value: @autoclosure () throws -> Bool, _ message: String) throws {
         guard try value() else { throw InstallError.message("Test failed: " + message) }
     }
-    static func fixture(_ root: URL, standard: Bool = false, modes: Bool = false) throws -> (PluginInstaller, URL, URL) {
+    static func fixture(_ root: URL, standard: Bool = false, modes: Bool = false, js8: Bool = false) throws -> (PluginInstaller, URL, URL) {
         let profile = root.appendingPathComponent("Profile with spaces and ü")
         let payload = root.appendingPathComponent("Payload")
         let host = root.appendingPathComponent("SDR++Brown.app")
@@ -21,7 +21,7 @@ import Darwin
         try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
             .write(to: host.appendingPathComponent("Contents/Info.plist"))
         var files: [String: String] = [:]
-        for name in PluginInstaller.names + (standard ? ["cty.dat"] : []) + (modes ? PluginInstaller.modeNames : []) {
+        for name in PluginInstaller.names + (standard ? ["cty.dat"] : []) + (modes ? PluginInstaller.modeNames : []) + (js8 ? PluginInstaller.js8Names : []) {
             let data = Data(("new-" + name).utf8)
             try data.write(to: payload.appendingPathComponent(name)); files[name] = PluginInstaller.hash(data)
         }
@@ -68,6 +68,17 @@ import Darwin
             }
         }
         for standard in [false, true] {
+            try scenario("optional JS8 payload, permissions and incomplete-payload refusal") { root in
+                let (engine, profile, host) = try fixture(root, standard: standard, modes: true, js8: true)
+                _ = try engine.install(profile: profile, host: host)
+                for name in PluginInstaller.js8Names {
+                    let target = profile.appendingPathComponent("plugins/dx-notebook/" + name)
+                    try check(Data(contentsOf: target) == Data("new-\(name)".utf8), "JS8 payload preserved")
+                    if name == "dx_js8_decoder" { try check((fm.attributesOfItem(atPath: target.path)[.posixPermissions] as! NSNumber).intValue == 0o755, "JS8 helper executable") }
+                }
+                try fm.removeItem(at: engine.payload.appendingPathComponent("COPYING.JS8"))
+                try expectFailure { try engine.validatePayload() }
+            }
             try scenario("native mode payload, runtimes and executable permissions") { root in
                 let (engine, profile, host) = try fixture(root, standard: standard, modes: true)
                 _ = try engine.install(profile: profile, host: host)

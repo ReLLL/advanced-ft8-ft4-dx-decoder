@@ -4,9 +4,18 @@ Read when: changing host integration, building a matching binary or publishing a
 
 ## Build requirements
 
-Apple Silicon macOS, Xcode command-line tools, CMake, Python 3 and matching SDR++ and SDR++Brown applications. Build dependencies can be installed with `brew install cmake fftw volk gcc boost`. Additional modes use the staged, pinned WSJT-X source and a Fortran compiler. Each build uses its selected host's FFTW library and verified macOS 15-compatible GCC runtime copies; do not substitute the developer machine's newer runtime. Runtime provenance and license files ship with both helpers. See [additional modes](MULTIMODE.md).
+Apple Silicon macOS, Xcode command-line tools, CMake, Python 3 and matching SDR++ and SDR++Brown applications. Build dependencies can be installed with `brew install cmake ninja fftw volk gcc boost`. Additional modes use the staged, pinned WSJT-X source and a Fortran compiler. Each build uses its selected host's FFTW library and verified macOS 15-compatible GCC runtime copies; do not substitute the developer machine's newer runtime. Runtime provenance and license files ship with both helpers. See [additional modes](MULTIMODE.md).
 
 The pinned host source is `679f48deee5299a199d15d30e6e785fac6054896` in [SDRPlusPlusBrown](https://github.com/sannysanoff/SDRPlusPlusBrown). The staging script copies the required source and applies FFT plan lifetime corrections; it preserves the upstream checkout.
+
+JS8 builds need the pinned static Qt Core runtime once per build machine:
+
+```sh
+python3 scripts/build_js8_runtime.py
+python3 scripts/stage_js8.py --verify
+```
+
+The Qt bootstrap verifies its download checksum and caches a macOS 15-compatible static build. Both host builds share that cache. Normal builds enable DX_JS8; set it OFF to omit the helper. JS8 is still off in receiver preferences by default. Its four-file installer group is independently validated; never ship a helper without its notices and provenance. Packaging includes the full matching Qt source archive and build recipe. Release checks must cover all four JS8 speeds, multi-frame identity/checksums, missing/ambiguous frames, silence/noise, upstream recordings, restart/cancellation and concurrent FT8. Synthetic test data stays in owned temporary folders.
 
 ```sh
 git clone https://github.com/sannysanoff/SDRPlusPlusBrown.git /tmp/SDRPlusPlusBrown
@@ -43,6 +52,8 @@ The standard host is SDR++ 1.2.0, May 28, 2024 build. Brown is 1.2.1, August 4, 
 7. Review binary dependencies and deployment targets. Commit named source paths, push, tag `vX.Y.Z` and create the GitHub release with generated assets. Verify public visibility, creator identity and downloaded checksums.
 
 A binary plugin is tied to the host ABI. Rebuilding for a different host requires compatible source/headers and corresponding tests. A lower Mach-O deployment target alone does not establish older-OS runtime compatibility; macOS 15 is the build minimum and macOS 26 is the tested environment for this release.
+
+On macOS, creating an APFS DMG can leave that output image attached and make verification report Resource temporarily unavailable. Packaging detaches only the exact newly created output image and retries verification once. It never detaches unrelated volumes or ignores checksum failures.
 
 ## Installer checks
 

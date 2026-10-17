@@ -2,6 +2,7 @@
 #include "location_check.h"
 #include <fstream>
 #include <cmath>
+#include <cctype>
 namespace dx {
 namespace {
 constexpr double rad=3.141592653589793/180.,radius=6371.;
@@ -14,13 +15,33 @@ double edgeDistance(Point p,Point a,Point b){
 }
 }
 bool LocationCheck::load(const std::filesystem::path& file){
- areas_.clear();keys_.clear();cache_.clear();std::ifstream input(file);auto world=Json::parse(input,nullptr,false);if(world.is_discarded()||!world.contains("features"))return false;
+ areas_.clear();keys_.clear();cache_.clear();distanceKeys_.clear();distances_.clear();std::ifstream input(file);auto world=Json::parse(input,nullptr,false);if(world.is_discarded()||!world.contains("features"))return false;
  for(const auto& feature:world["features"]){Area area;const auto& geometry=feature["geometry"];auto coordinates=geometry["coordinates"];if(geometry["type"]=="Polygon")coordinates=Json::array({coordinates});else if(geometry["type"]!="MultiPolygon")continue;
   for(const auto& polygon:coordinates){std::vector<std::vector<Point>> rings;Point minimum{90,180},maximum{-90,-180};for(const auto& ring:polygon){std::vector<Point> points;for(const auto& p:ring){Point point{p[1].get<double>(),p[0].get<double>()};points.push_back(point);minimum.lat=std::min(minimum.lat,point.lat);minimum.lon=std::min(minimum.lon,point.lon);maximum.lat=std::max(maximum.lat,point.lat);maximum.lon=std::max(maximum.lon,point.lon);}rings.push_back(std::move(points));}area.polygons.push_back(std::move(rings));area.bounds.emplace_back(minimum,maximum);}
   if(area.polygons.empty())continue;const size_t index=areas_.size();areas_.push_back(std::move(area));const auto& props=feature["properties"];
-  for(const char* name:{"NAME_EN","NAME","ADMIN","NAME_LONG","FORMAL_EN"})if(props.contains(name)&&props[name].is_string())keys_[countryOutlineKey(props[name].get<std::string>())]=index;
+  for(const char* name:{"NAME_EN","NAME","ADMIN","NAME_LONG","FORMAL_EN"})if(props.contains(name)&&props[name].is_string()){
+   auto value=props[name].get<std::string>();keys_[countryOutlineKey(value)]=index;
+   std::string exact;for(unsigned char c:upper(value))if(std::isalnum(c))exact+=char(c);distanceKeys_[exact]=index;
+  }
  }
  if(auto found=keys_.find("UNITEDSTATESOFAMERICA");found!=keys_.end())keys_["UNITEDSTATES"]=found->second;
+ // The short map label does not distinguish the two Congo countries.
+ distanceKeys_.erase("CONGO");
+ // Explicit aliases only: these apply to the optional country-distance view,
+ // not DXCC identity or the country/grid mismatch filter. Regional labels use
+ // the whole-country outline; unrelated islands/subdivisions remain unknown.
+ for(const auto& pair:std::vector<std::pair<std::string,std::string>>{
+  {"UNITEDSTATES","UNITEDSTATESOFAMERICA"},{"FEDREPOFGERMANY","GERMANY"},
+  {"EUROPEANRUSSIA","RUSSIA"},{"ASIATICRUSSIA","RUSSIA"},{"ASIANRUSSIA","RUSSIA"},
+  {"EUROPEANTURKEY","TURKEY"},{"ASIATICTURKEY","TURKEY"},{"ASIANTURKEY","TURKEY"},
+  {"TURKIYE","TURKEY"},{"TRKIYE","TURKEY"},{"REPUBLICOFTURKIYE","TURKEY"},{"REPUBLICOFTRKIYE","TURKEY"},
+  {"WESTMALAYSIA","MALAYSIA"},{"EASTMALAYSIA","MALAYSIA"},
+  {"DEMREPOFTHECONGO","DEMOCRATICREPUBLICOFTHECONGO"},
+  {"BOSNIAHERZEGOVINA","BOSNIAANDHERZEGOVINA"},{"TRINIDADTOBAGO","TRINIDADANDTOBAGO"},
+  {"REPUBLICOFKOREA","SOUTHKOREA"},{"DPRKOREA","NORTHKOREA"},{"DPROFKOREA","NORTHKOREA"},
+  {"COTEDIVOIRE","IVORYCOAST"},{"CTEDIVOIRE","IVORYCOAST"},
+  {"BURMA","MYANMAR"},{"SWAZILAND","ESWATINI"},{"MACEDONIA","NORTHMACEDONIA"}
+ })if(auto found=distanceKeys_.find(pair.second);found!=distanceKeys_.end())distanceKeys_.emplace(pair.first,found->second);
  return ready();
 }
 bool LocationCheck::mismatch(const std::string& country,const std::string& grid,const std::string& call,double toleranceKm){

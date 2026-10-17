@@ -16,6 +16,10 @@ We acknowledge **Joe Taylor K1JT, Steve Franke K9AN, Bill Somerville G4WJS, Nico
 
 The staged WSJT-X sources retain their original notices and GPL license. Their pinned revision and file hashes are recorded under `third_party/wsjtx/`. Release 1.0.39 includes FT8, FT4, WSPR, FST4, FST4W and Q65 reception. The README and release notes describe available features.
 
+## JS8Call
+
+Thank you to **Jordan Sherer KN4CRD**, creator of [JS8Call](https://github.com/js8call/js8call), **Allan Bazinet W6BAZ** and the JS8Call contributors for the JS8 protocol, Varicode message formats and decoder implementation. JS8Call builds on WSJT-X and its contributors' weak-signal work. Development version 1.0.40 uses a pinned upstream C++ decoder and parser in an isolated receive-only helper. Original author notices remain in the source. **Qt**, **Eigen**, **Boost** and **CRC++** contributors also provide dependencies used by this helper; see the retained license files and third-party notices.
+
 ## MSHV and radio hosts
 
 - **[MSHV](https://sourceforge.net/projects/mshv/): Hrisimir Hristov, LZ2HV**, for the adapted C++ decoder implementation used through SDR++Brown, based on WSJT-family work. Original WSJT and MSHV author and license notices remain in the corresponding source.

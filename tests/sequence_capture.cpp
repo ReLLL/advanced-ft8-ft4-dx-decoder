@@ -10,7 +10,7 @@ int main(){
  CHECK(dx::sequencePeriods("FST4",60000)==std::vector<int>{60000});CHECK(dx::sequencePeriods("FST4W",60000).empty());
  CHECK(dx::sequenceSubmodeMaximum(0)==2&&dx::sequenceSubmodeMaximum(30000)==3&&dx::sequenceSubmodeMaximum(60000)==4);
  std::vector<float> second(12000,.125f);
- for(const char* mode:{"FST4","FST4W","Q65","WSPR"}){
+ for(const char* mode:{"FST4","FST4W","Q65","WSPR","JS8"}){
   dx::SequenceCapture capture;std::map<int,int> counts;std::deque<dx::Job> together;auto periods=dx::sequencePeriods(mode);
   for(int64_t t=1;t<=1801;t++){
    auto jobs=capture.feed(second.data(),second.size(),t*1000,14095600,mode);

@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.0.45 (2026-10-17)
+
+This release includes the development changes from 1.0.40 through 1.0.43 below.
+
+- Add optional receive-only JS8 in the existing map, tables, filters and history, with a separate decoder helper and four supported speeds. JS8 starts off.
+- Add country-based distance estimates when received/cached grid evidence is missing, including country-name variants. Mark estimates with [C] and keep them separate from station positions, farthest records and DX activity bearings.
+- Add a remembered Hide home location icon option in Map settings. Preserve home-based calculations and navigation.
+- Make DX activity bearing and its compass follow shared reception filters and history/clear scope. Narrow the 15-minute activity limit with shorter time windows and custom date bounds; capture/alert settings no longer override the selected bands and modes.
+- Bundle matching installers for SDR++ and SDR++Brown, upstream credits and corresponding source. Keep local agent instructions out of the repository and source package.
+
+## 1.0.43 (unreleased development)
+
+- Add Hide home location icon in Map settings. Apply immediately and remember the choice; keep home-based distances, bearings and navigation. Restore defaults shows the icon again.
+
+## 1.0.42 (unreleased development)
+
+- Resolve country-distance naming variants for European/Asiatic Russia and Turkey, East/West Malaysia, Türkiye, Congo, Korea, Bosnia, Trinidad and Côte d'Ivoire. Regional labels use the whole-country outline for this coarse estimate only; keep original country names and saved radio evidence.
+- Share cached geometry results between aliases. Keep ambiguous names and entities without matching mapped areas unknown.
+
+## 1.0.41 (unreleased development)
+
+- Add Approximate unknown distances based on country in General settings, enabled by default. Use a near-side six-character grid center inside the matching country outline when received/cached grid evidence is missing. Mark estimates with [C], preserve raw history and exclude estimates from location, distance-record and propagation claims.
+- Apply the setting to existing and new views, distance sorting/filters, details, latest heard, country averages and corner notifications. Identify estimated distances explicitly in table exports.
+- Keep project agent instructions local and out of future corresponding-source archives.
+
+## 1.0.40 (unreleased development)
+
+- Add optional receive-only JS8 using pinned JS8Call decoder and Varicode source. JS8 starts off; Speed: All receives Normal, Fast, Turbo / JS8 40 and Slow. Exclude experimental JS8 60.
+- Share existing map, tables, filters, home distances and saved history. Use octagonal markers and show speed/completeness in details. Keep incomplete or ambiguous messages explicit; never guess sender identity from prose.
+- Isolate JS8 in a bounded worker and helper with cancellation, watchdog and restart recovery. Preserve FT8/FT4 and the other modes' workers and defaults. Bundle static Qt Core, licenses and corresponding source for both host installers.
+
 ## 1.0.39 (2026-10-15)
 
 This release includes the development changes from 1.0.33 through 1.0.38 below.
