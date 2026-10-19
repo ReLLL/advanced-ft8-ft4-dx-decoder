@@ -170,6 +170,7 @@ def main():
         disk = output / (name + "-installer-macos-arm64.dmg")
         subprocess.run(["hdiutil", "create", "-ov", "-format", "UDZO", "-volname", "Kondor Weak Signal Modes Decoder",
                         "-srcfolder", str(package), str(disk)], check=True)
+        verify_disk(disk)
         if args.notary_profile:
             sign(disk, args.signing_identity)
             notarize(disk, args.notary_profile)

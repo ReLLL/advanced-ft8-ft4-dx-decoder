@@ -57,7 +57,7 @@ The standard host is SDR++ 1.2.0, May 28, 2024 build. Brown is 1.2.1, August 4, 
 
 A binary plugin is tied to the host ABI. Rebuilding for a different host requires compatible source/headers and corresponding tests. A lower Mach-O deployment target alone does not establish older-OS runtime compatibility; macOS 15 is the build minimum and macOS 26 is the tested environment for this release.
 
-On macOS, creating an APFS DMG can leave that output image attached and make verification report Resource temporarily unavailable. Packaging detaches only the exact newly created output image and retries verification once. It never detaches unrelated volumes or ignores checksum failures.
+On macOS, creating an APFS DMG can leave that output image attached and make verification report Resource temporarily unavailable. Verify and detach the exact newly created image before signing/notarization, then verify it again afterward. Packaging retries verification once after detaching its own image. It never detaches unrelated volumes or ignores checksum failures.
 
 ## Installer checks
 
