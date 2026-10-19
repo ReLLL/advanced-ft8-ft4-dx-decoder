@@ -252,7 +252,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, 
     }
     @objc private func openGridMap() { NSWorkspace.shared.open(URL(string: "https://k7fry.com/grid/")!) }
     func controlTextDidChange(_ notification: Notification) { locationLookup.cancel(); locate.isEnabled = true; locationStatus.stringValue = "Use the grid of the place where your receiver and antenna are located." }
-    @objc private func openHelp() { NSWorkspace.shared.open(URL(string: "https://github.com/ReLLL/kondor-advanced-decoder/blob/main/docs/INSTALL.md")!) }
+    @objc private func openHelp() { NSWorkspace.shared.open(URL(string: "https://github.com/ReLLL/kondor-weak-signal-modes-decoder/blob/main/docs/INSTALL.md")!) }
     @objc private func close() { if !busy { NSApp.terminate(nil) } }
     func windowShouldClose(_ sender: NSWindow) -> Bool { if busy { return false }; NSApp.terminate(nil); return true }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { busy ? .terminateCancel : .terminateNow }

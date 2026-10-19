@@ -1,6 +1,6 @@
 Kondor FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65 Advanced Decoder
 For SDR# (.NET 9, x64)
-Developer: ReLLL - https://github.com/ReLLL/kondor-advanced-decoder
+Developer: ReLLL - https://github.com/ReLLL/kondor-weak-signal-modes-decoder
 
 1. Extract this entire ZIP. Close SDR#.
 2. Open Install.cmd and select SDRSharp.dotnet9.exe in your SDR# folder.
@@ -36,4 +36,4 @@ need a matching adapter and are not covered by this target.
 
 We need feedback, reception reports and feature ideas:
 X / Twitter: https://x.com/FoxOnTheRunTr (@FoxOnTheRunTr)
-GitHub: https://github.com/ReLLL/kondor-advanced-decoder/issues
+GitHub: https://github.com/ReLLL/kondor-weak-signal-modes-decoder/issues

@@ -26,7 +26,7 @@ The Windows adapter targets the .NET 9 x64 SDR# application. The macOS installer
 
 ### macOS: SDR++ and SDR++Brown
 
-[Download the latest release](https://github.com/ReLLL/kondor-advanced-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26.
+[Download the latest release](https://github.com/ReLLL/kondor-weak-signal-modes-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26.
 
 1. Install [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus/releases/tag/nightly) or [SDR++Brown](https://sdrpp-brown.san.systems/) in **Applications**. Skip this if you already have the supported app installed.
 2. Download and open `installer-macos-arm64.dmg`, then open **Install Kondor Advanced Decoder**. The ZIP includes the same installer if you prefer to extract it.
@@ -56,7 +56,7 @@ In the profile's `config.json`, register the absolute path to `dx_notebook.dylib
 
 The Windows preview has decoded an FT8 IQ recording in **SDR# 1.0.0.1921** on Windows 11 ARM64 using x64 emulation. All seven supported modes also pass Windows decoder fixtures. Closing and reopening the decoder window preserves reception and current data while SDR# is playing.
 
-[Download the Windows preview ZIP](https://github.com/ReLLL/kondor-advanced-decoder/releases/download/v1.0.50/advanced-ft8-ft4-dx-decoder-1.0.50-sdrsharp-windows-x64-preview.zip). Installation takes these steps:
+[Download the Windows preview ZIP](https://github.com/ReLLL/kondor-weak-signal-modes-decoder/releases/download/v1.0.50/advanced-ft8-ft4-dx-decoder-1.0.50-sdrsharp-windows-x64-preview.zip). Installation takes these steps:
 
 1. Install the **x64 .NET 9** version of [SDR# from Airspy](https://airspy.com/download/) and check that SDR# opens normally.
 2. Extract the complete Windows decoder ZIP, then close SDR#.
@@ -166,6 +166,6 @@ See [building and releasing](docs/RELEASING.md) and the [Windows build guide](do
 
 ## Feedback wanted
 
-We need your feedback: reception results, bugs, feature ideas and general UI suggestions. Post to **[@FoxOnTheRunTr on X / Twitter](https://x.com/FoxOnTheRunTr)** or open a **[GitHub issue](https://github.com/ReLLL/kondor-advanced-decoder/issues)**. Tell us what worked and what felt confusing.
+We need your feedback: reception results, bugs, feature ideas and general UI suggestions. Post to **[@FoxOnTheRunTr on X / Twitter](https://x.com/FoxOnTheRunTr)** or open a **[GitHub issue](https://github.com/ReLLL/kondor-weak-signal-modes-decoder/issues)**. Tell us what worked and what felt confusing.
 
 For a bug report, include the plugin version, SDR application/build, operating system, radio hardware, mode and steps to reproduce it. Relevant messages or screenshots help; review them for private information before sharing.
