@@ -2,7 +2,7 @@
 
 Read when: installing, upgrading, removing or restoring the plugin.
 
-## Native installer
+## macOS native installer
 
 Requirements: Apple Silicon and macOS 15+, with **SDR++** at `/Applications/SDR++.app` or **SDR++Brown** at `/Applications/SDR++Brown.app`. The installer does not restrict installation by version number or an exact core-library fingerprint. It checks the selected application and the libraries required by its plugin build. Standard SDR++ does not require Brown. Python, Homebrew and developer tools are not required for the native installer. Testing used SDR++ 1.2.0 and SDR++Brown 1.2.1 on macOS 26.
 
@@ -38,7 +38,60 @@ python3 scripts/install.py --build bin --profile '/path/to/brown/profile'
 
 Omit `--profile` for Brown's normal profile. For standard SDR++, use `python3 scripts/install.py --host sdrpp --build bin-sdrpp`; the matching host manifest and country data are included. Python is needed only for these optional commands and source-build tooling.
 
-## Remove or restore
+## Manual macOS installation
+
+Use the binary macOS release ZIP. Open the selected radio app once, then quit it completely before copying files or editing settings. Back up the profile's `config.json` and any existing `plugins/dx-notebook/` folder first. Keep SDR++ at `/Applications/SDR++.app` or Brown at `/Applications/SDR++Brown.app`, matching the packaged libraries.
+
+| Host | Profile folder | Binary folder in ZIP |
+| --- | --- | --- |
+| SDR++Brown | `~/Library/Application Support/sdrpp-brown/` | `bin/` |
+| SDR++ | `~/Library/Application Support/sdrpp/` | `bin-sdrpp/` |
+
+Finder's **Go > Go to Folder...** accepts these paths. For a custom profile, use the folder containing that host's `config.json`.
+
+1. Create `plugins/dx-notebook/` inside the profile. Copy **every file** from the matching binary folder into it, including decoder executables, runtime libraries and license/provenance files.
+2. Copy `resources/world.geojson` from the ZIP into the same destination. For standard SDR++, also copy `resources/cty.dat` and `resources/cty-LICENSE.txt` there. Keep the two host builds separate.
+3. Open the profile's `config.json` in a plain-text editor. Merge the entries below into its existing `modules`, `moduleInstances` and `menuElements` fields. Preserve all other modules, instances and menu entries. For an upgrade, retain the existing decoder instance's settings instead of creating a duplicate.
+
+This example uses Brown's default profile. Replace `YOUR_MAC_USERNAME` with your Mac account's home-folder name; for standard SDR++, replace `sdrpp-brown` with `sdrpp`. Use the full absolute path: JSON does not expand `~` or shell variables.
+
+```json
+{
+  "modules": [
+    "/Users/YOUR_MAC_USERNAME/Library/Application Support/sdrpp-brown/plugins/dx-notebook/dx_notebook.dylib"
+  ],
+  "moduleInstances": {
+    "Advanced FT8/FT4/WSPR DX Decoder": {
+      "module": "advanced_ft8_ft4_dx_decoder",
+      "enabled": true
+    }
+  },
+  "menuElements": [
+    { "name": "Advanced FT8/FT4/WSPR DX Decoder", "open": true }
+  ]
+}
+```
+
+This is an example of the entries to merge, not a replacement for your whole configuration. Save valid JSON with commas between existing entries. Helpers must retain executable permission. If your extraction tool removed it, run the following in Terminal for Brown, or change `sdrpp-brown` to `sdrpp` for standard SDR++:
+
+```sh
+chmod u+x "$HOME/Library/Application Support/sdrpp-brown/plugins/dx-notebook/"dx*decoder
+```
+
+Reopen the host, enable/open the decoder from the sidebar, and [set your home grid](../README.md#finding-your-home-grid-first-time-setup). These files belong in the profile, outside the signed radio `.app`. Manual installation skips the installer's file verification, host checks and automatic backups.
+
+## Windows installation: SDR#
+
+Use the Windows package for the x64 .NET 9 SDR# host. Close SDR#, then choose either method:
+
+- **Installer:** extract the complete ZIP, open `Install.cmd` and select `SDRSharp.dotnet9.exe`.
+- **Manual copy:** copy the ZIP's top-level `AdvancedDx` folder into the `Plugins` folder beside that executable. The adapter must be at `Plugins\AdvancedDx\SDRSharp.AdvancedDx.dll`; its worker must be at `Plugins\AdvancedDx\AdvancedDx\dx_sdrsharp.exe`. Retain all nested runtime DLLs, helpers, maps and icons. If upgrading, move the previous `AdvancedDx` folder to a backup outside `Plugins` first.
+
+If `SDRSharp.config` has a custom `core.pluginsDirectory`, use that directory instead of `Plugins`. SDR# discovers the adapter automatically; no `Plugins.xml` entry is required. Reopen SDR#, enable the decoder in the plugins panel, open its window and set **Settings > General > Maidenhead grid**.
+
+Preferences, SQLite history, reception CSV and map caches are separate, under `%LOCALAPPDATA%\Advanced DX Decoder\SDRSharp`; leave them in place when replacing plugin binaries. See [Windows support and build details](WINDOWS.md).
+
+## Remove or restore on macOS
 
 Quit the selected host. Copy a chosen backup's `config.json` to the profile's `config.json`. If the backup contains `plugin/`, copy its files back into `plugins/dx-notebook/` to restore the previous plugin build. The installer's **Show backup** button opens the backup for that installation.
 

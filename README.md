@@ -1,6 +1,6 @@
 # Advanced FT8/FT4/WSPR DX Decoder
 
-**Receive-only FT8, FT4, WSPR, FST4/FST4W, Q65 and JS8 decoding, a DX map, and reception logging inside SDR++ and SDR++Brown for macOS.** FT8, FT4 and WSPR start on; enable the other modes in Settings. See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
+**Receive-only FT8, FT4, WSPR, FST4/FST4W, Q65 and JS8 decoding, a DX map, and reception logging for SDR++, SDR++Brown and SDR# (SDR Sharp).** FT8, FT4 and WSPR start on; enable the other modes in Settings. See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
 
 Created by [ReLLL](https://github.com/ReLLL). Free software under GPL-3.0-or-later.
 
@@ -11,6 +11,18 @@ This plugin builds on the weak-signal protocols, decoder algorithms and software
 ReLLL develops this plugin's receiver integration, mapping, reception history and interface. See [full credits](CREDITS.md) for upstream projects, authors and source references, and [third-party notices](THIRD_PARTY_NOTICES.md) for licenses. Upstream credits do not imply endorsement.
 
 ## Download and install
+
+Choose the package for your SDR application and operating system:
+
+| SDR application | Operating system / architecture | Verified host | Availability |
+| --- | --- | --- | --- |
+| SDR++ | macOS 15 or later, Apple Silicon (arm64) | SDR++ 1.2.0, May 28, 2024 build; tested on macOS 26 | Published macOS installer |
+| SDR++Brown | macOS 15 or later, Apple Silicon (arm64) | SDR++Brown 1.2.1, August 4, 2026 build; tested on macOS 26 | Published macOS installer |
+| SDR# / SDR Sharp | Windows 11, x64 .NET 9 host; also tested under x64 emulation on Windows 11 ARM64 | SDR# 1.0.0.1921 in Parallels | Windows preview built and tested locally; download not published yet |
+
+The Windows adapter targets the .NET 9 x64 SDR# application. The macOS installer contains separate SDR++ and SDR++Brown integrations.
+
+### macOS: SDR++ and SDR++Brown
 
 [Download the latest release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26.
 
@@ -24,6 +36,41 @@ ReLLL develops this plugin's receiver integration, mapping, reception history an
 No Python, Terminal, Homebrew, developer tools or administrator password is needed for the native installer. It verifies packaged files and the selected host's required libraries, backs up the configuration and any previous plugin, and installs outside the host's signed application. Each host has its own binary, profile and reception history. Settings and logs are preserved; **Choose profile...** supports a non-default profile. [Installation and removal](docs/INSTALL.md).
 
 The **SDR++ build uses standard SDR++ APIs**, with its own location and country data; it does not require Brown to be installed. Brown keeps its native integration and existing behavior. The shared FT8/FT4 decoder uses pinned MSHV-derived source, while host headers and runtime libraries match the selected application.
+
+#### Manual macOS installation: copy files yourself
+
+Use the macOS release ZIP without opening its installer. Open your radio app once to create its profile, then quit it. In Finder, **Go > Go to Folder...** opens the folders below; create `plugins/dx-notebook/` if needed.
+
+| Radio app | Copy every file from the ZIP folder | Destination |
+| --- | --- | --- |
+| SDR++Brown | `bin/` | `~/Library/Application Support/sdrpp-brown/plugins/dx-notebook/` |
+| SDR++ | `bin-sdrpp/` | `~/Library/Application Support/sdrpp/plugins/dx-notebook/` |
+
+Also copy `resources/world.geojson` into that destination. For standard SDR++, copy `resources/cty.dat` and `resources/cty-LICENSE.txt` there too. Keep all helpers, runtime libraries and license files together; use the build for the selected radio app.
+
+In the profile's `config.json`, register the absolute path to `dx_notebook.dylib` in `modules`, add its enabled instance in `moduleInstances`, and add its sidebar entry in `menuElements`. **Preserve existing entries.** The [manual installation guide](docs/INSTALL.md#manual-macos-installation) contains the exact JSON entries and executable-permission command. Then reopen the radio app and set your home grid as above. Custom profiles use the same layout inside their own profile folder; files go outside the signed `.app` bundle.
+
+### Windows: SDR# / SDR Sharp
+
+The Windows preview has decoded an FT8 IQ recording in **SDR# 1.0.0.1921** on Windows 11 ARM64 using x64 emulation. All seven supported modes also pass Windows decoder fixtures. Closing and reopening the decoder window preserves reception and current data while SDR# is playing.
+
+The Windows installer ZIP is built locally and is **not yet included in the public GitHub release**. Once you have the Windows package:
+
+1. Install the **x64 .NET 9** version of [SDR# from Airspy](https://airspy.com/download/) and check that SDR# opens normally.
+2. Extract the complete Windows decoder ZIP, then close SDR#.
+3. Open **Install.cmd** and select **SDRSharp.dotnet9.exe** in your SDR# folder. The installer verifies the package, installs the plugin and backs up an existing installation.
+4. Open SDR#. Find **Advanced FT8/FT4/WSPR DX Decoder** in the plugins panel, enable it, and click **Open Advanced DX Decoder**.
+5. In the decoder, set **Settings > General > Maidenhead grid** to your receiver's location. Find the locator with the [K7FRY grid map](https://k7fry.com/grid/): click your receiver's location and copy its first six characters.
+6. Start the radio and tune the captured spectrum to a supported dial frequency. FT8, FT4 and WSPR are enabled initially. Closing the decoder window keeps reception running; its Open button brings it back.
+
+Windows settings, reception CSV, SQLite history and cached maps are stored under `%LOCALAPPDATA%\Advanced DX Decoder\SDRSharp`. Updates preserve these files. See the [Windows guide](docs/WINDOWS.md) for build steps, installation details and validation limits. Current macOS downloads remain available through the latest release above.
+
+#### Manual Windows installation: copy files yourself
+
+1. Close SDR# and extract the complete Windows decoder ZIP.
+2. Copy the ZIP's **top-level `AdvancedDx` folder** into the `Plugins` folder beside `SDRSharp.dotnet9.exe`. The result includes `Plugins\AdvancedDx\SDRSharp.AdvancedDx.dll` and `Plugins\AdvancedDx\AdvancedDx\dx_sdrsharp.exe`. Keep the nested folder and all its DLLs, helpers, maps and icons together.
+3. If upgrading, move the previous `Plugins\AdvancedDx` folder to a backup **outside `Plugins`** before copying. If `SDRSharp.config` sets `core.pluginsDirectory` to another location, use that plugins folder instead.
+4. Reopen SDR#, enable the decoder in its plugins panel and set your home grid as above. No `Plugins.xml` entry is needed. Reception history and preferences remain in the separate data folder above.
 
 ### Finding your home grid: first-time setup
 
@@ -98,7 +145,7 @@ Distance uses the great-circle path between your home grid center and a received
 
 [User guide](docs/USER_GUIDE.md) explains the columns, colors, settings, map cache, scientific limits and GridTracker setup. The same essentials are available in the plugin's **Help** dialog.
 
-## CPU and memory
+## CPU and memory on macOS
 
 Measured on an Apple M2 Max with 12 cores and 32 GB RAM, receiving 40m FT8 and FT4 from a 3.2 MS/s SDR capture. Each state ran for about 60 seconds with the same 1512 x 921 Brown window. Totals include Brown and the decoder helper.
 
@@ -113,6 +160,10 @@ Measured on an Apple M2 Max with 12 cores and 32 GB RAM, receiving 40m FT8 and F
 
 ## Build and contribute
 
-See [building and releasing](docs/RELEASING.md). The decoder uses pinned SDR++Brown/MSHV code, with FFT plan lifetime fixes. History uses SQLite, native dialogs and sound use AppKit, and polygon triangulation uses Mapbox Earcut. [Third-party notices](THIRD_PARTY_NOTICES.md).
+See [building and releasing](docs/RELEASING.md) and the [Windows build guide](docs/WINDOWS.md). The decoder uses pinned SDR++Brown/MSHV code, with FFT plan lifetime fixes. History uses SQLite and polygon triangulation uses Mapbox Earcut. macOS dialogs and sound use AppKit; Windows uses native Windows dialogs and a separate decoder process connected through the SDR# SDK. [Third-party notices](THIRD_PARTY_NOTICES.md).
 
-Report bugs through [GitHub Issues](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/issues). Include plugin version, Brown build, macOS version, reproduction steps and relevant messages. Review logs and screenshots for private information before sharing.
+## Feedback wanted
+
+We need your feedback: reception results, bugs, feature ideas and general UI suggestions. Post to **[@FoxOnTheRunTr on X / Twitter](https://x.com/FoxOnTheRunTr)** or open a **[GitHub issue](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/issues)**. Tell us what worked and what felt confusing.
+
+For a bug report, include the plugin version, SDR application/build, operating system, radio hardware, mode and steps to reproduce it. Relevant messages or screenshots help; review them for private information before sharing.
