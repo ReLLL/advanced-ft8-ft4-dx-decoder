@@ -1,6 +1,6 @@
 # Advanced FT8/FT4/WSPR DX Decoder
 
-**FT8, FT4 and WSPR decoding, a DX map, and reception logging inside SDR++ and SDR++Brown for macOS.** Optional FST4, FST4W, Q65 and receive-only JS8 reception uses the same workspace. See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
+**Receive-only FT8, FT4, WSPR, FST4/FST4W, Q65 and JS8 decoding, a DX map, and reception logging inside SDR++ and SDR++Brown for macOS.** FT8, FT4 and WSPR start on; enable the other modes in Settings. See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
 
 Created by [ReLLL](https://github.com/ReLLL). Free software under GPL-3.0-or-later.
 
@@ -41,9 +41,9 @@ To find it yourself:
 
 The code identifies an area; the plugin calculates distances from its center. Six characters give a smaller area than four. `KM69` and `KM69xx` in the instructions are format examples; do not copy them as your location unless they actually match it.
 
-## What you can see in 1.0.45
+## What you can see in 1.0.49
 
-- **At a glance:** unique countries, unique stations, farthest distance with country, active decoding uptime, stations heard in the last five minutes, and the latest three calls with country, distance and receiver SNR. DX ACTIVITY BEARING summarizes recent distant reception.
+- **At a glance:** unique countries, unique stations, farthest distance with country, active decoding uptime, stations heard in the last five minutes, and the latest three calls with country, distance and receiver SNR. DX ACTIVITY BEARING summarizes distant reception within the shared filters. With either saved-history option on, an amber clock value after uptime shows elapsed time from the oldest retained reception; hover for its start date and meaning.
 - **Three reception views:** Unique stations, All messages and Countries heard. Repeated messages stay visible in All messages; country summaries show distinct senders, mean distance/SNR and the last five senders. Each table remembers its layout and sort.
 - **Waterfall corner:** optional, initially on. Every new reception appears with its flag, country, sender, distance, SNR and full italic message, including repeats. Rows pulse for two seconds and expire after an adjustable 10 seconds. The farthest reception stays below, with a trophy and flag; only its Farthest label is gold.
 - **Flags and details:** flags precede country names in all tables. The details pane separates station, country, distance, signal and message colors; receiver SNR follows the continuous map color scale. Drag its horizontal divider to adjust and remember its height. Double-click a country to see all its matching receptions, including repeats, newest first.
@@ -92,9 +92,9 @@ Live reception in SDR++Brown, showing the DX map, reception tables, country flag
 
 ## Read the numbers correctly
 
-Distance uses the great-circle path between your home grid center and a received station grid center. `*` before a distance marks recent cached grid evidence. **Approximate unknown distances based on country** is available in Settings > General and starts on. `[C]` marks a near-side country-grid estimate when normal grid evidence is unavailable. It works with existing and new visible receptions and stays separate from station positions, distance records and propagation bearings. Country-name variants are recognized, including European/Asiatic Russia and Turkey; these regional labels use the whole-country outline for this coarse estimate. Missing or ambiguous outlines stay unknown. A callsign prefix identifies a DXCC entity rather than an exact transmitter location. See the [distance explanation](docs/USER_GUIDE.md#colors-and-distance-evidence) for limits.
+Distance uses the great-circle path between your home grid center and a received station grid center. `*` before a distance marks recent cached grid evidence. **Approximate unknown distances based on country** is available in Settings > General and starts on. `[C]` marks a near-side country-grid estimate when normal grid evidence is unavailable. It works with existing and new visible receptions and stays separate from station positions and distance records. Country-name variants are recognized, including European/Asiatic Russia and Turkey; these regional labels use the whole-country outline for this coarse estimate. Missing or ambiguous outlines stay unknown. A callsign prefix identifies a DXCC entity rather than an exact transmitter location. See the [distance explanation](docs/USER_GUIDE.md#colors-and-distance-evidence) for limits.
 
-**DX activity bearing** and its compass follow the shared reception filters and the current session/history scope. They summarize short-path bearings from home to the farthest matching stations heard within the last 15 minutes; shorter selected windows and custom date bounds narrow that sample. It describes observed reception activity, not measured arrival direction or a propagation forecast. An addressed message and an arc do not prove a completed contact.
+**DX activity bearing** and its compass follow the shared reception filters and the current session/history scope. They summarize short-path bearings from home to the farthest matching stations in the selected time window. All with saved history includes retained historical and live receptions; Last 15 minutes limits the sample to those 15 minutes. Historical/custom date ranges use matching past receptions without an additional age cutoff. All supported modes can use received/cached grids or, when country estimates are enabled, the existing near-side country-grid approximation. `[C]` marks a bearing containing country estimates; hover for the sample and estimate count. Country-only directions are coarse and cannot locate the transmitter within its country. It describes observed reception activity in the selected period, not measured arrival direction or a propagation forecast. An older history selection does not describe current conditions. An addressed message and an arc do not prove a completed contact.
 
 [User guide](docs/USER_GUIDE.md) explains the columns, colors, settings, map cache, scientific limits and GridTracker setup. The same essentials are available in the plugin's **Help** dialog.
 

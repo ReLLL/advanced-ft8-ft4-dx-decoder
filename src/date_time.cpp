@@ -1,6 +1,8 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "model.h"
 #include <ctime>
+#include <cstdio>
+#include <algorithm>
 namespace dx {
 namespace {
 bool sameTime(const tm& a,const tm& b){return a.tm_year==b.tm_year&&a.tm_mon==b.tm_mon&&a.tm_mday==b.tm_mday&&a.tm_hour==b.tm_hour&&a.tm_min==b.tm_min&&a.tm_sec==b.tm_sec;}
@@ -10,6 +12,10 @@ std::optional<tm> fields(const std::string& text){
  if(!end||*end||date.tm_year<70)return {};return date;
 }
 }
+std::string durationText(int64_t seconds){
+ seconds=std::max(int64_t(0),seconds);char value[48];std::snprintf(value,sizeof(value),"%02lldd %02lld:%02lld",static_cast<long long>(seconds/86400),static_cast<long long>((seconds/3600)%24),static_cast<long long>((seconds/60)%60));return value;
+}
+std::string historySpanText(bool enabled,int64_t oldestUtc,int64_t referenceUtc){return enabled&&oldestUtc>0?durationText(referenceUtc>oldestUtc?referenceUtc-oldestUtc:0):"";}
 std::string localDateTime(int64_t timestamp,bool withZone){
  if(timestamp<=0)return "--";time_t epoch=timestamp;tm date{};if(!localtime_r(&epoch,&date))return "--";
  char stamp[64];if(!std::strftime(stamp,sizeof(stamp),withZone?"%Y-%m-%d %H:%M:%S %z":"%Y-%m-%d %H:%M:%S",&date))return "--";

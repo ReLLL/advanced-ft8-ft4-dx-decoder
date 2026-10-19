@@ -8,7 +8,7 @@ void DXNotebook::directionStat(const char* value,std::optional<double> bearing){
  draw->PushClipRect(pos,{pos.x+textWidth,pos.y+height},true);
  const char* label=ImGui::CalcTextSize("DX ACTIVITY BEARING").x*.78f<=textWidth?"DX ACTIVITY BEARING":"DX BEARING";
  draw->AddText(ImGui::GetFont(),font*.78f,pos,muted,label);std::string shown=value;
- if(ImGui::CalcTextSize(value).x>textWidth){if(bearing){char degrees[24];std::snprintf(degrees,sizeof(degrees),"%.0f°",std::fmod(std::round(*bearing),360.));shown=degrees;}else shown=std::string(value).find("Mixed")==0?"Mixed":"Waiting";}
+ if(ImGui::CalcTextSize(value).x>textWidth){auto prefix=shown.rfind("[C] ",0)==0?"[C] ":"";if(bearing){char degrees[24];std::snprintf(degrees,sizeof(degrees),"%s%.0f°",prefix,std::fmod(std::round(*bearing),360.));shown=degrees;}else shown=prefix+std::string(shown.find("Mixed")!=std::string::npos?"Mixed":"No matches");}
  draw->AddText({pos.x,pos.y+font+ImGui::GetStyle().ItemSpacing.y},accent,shown.c_str());draw->PopClipRect();
  draw->AddCircleFilled(center,radius-1,IM_COL32(12,19,23,255),40);draw->AddCircle(center,radius-1,IM_COL32(138,155,163,230),40,1.1f);draw->AddCircle(center,radius-3,IM_COL32(55,72,79,230),40,.65f);
  constexpr double rad=3.14159265358979323846/180;

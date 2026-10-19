@@ -32,7 +32,11 @@ struct DXChannel {
  DXChannel(DXNotebook*,dx::Preset,double center);~DXChannel();
  static void audio(dsp::stereo_t*,int,void*);
 };
-struct MapView {double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true,snrColors=true,hideHome=false;float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;};
+struct MapView {
+ double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true,snrColors=true,hideHome=false;
+ float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;
+ void centerHome(dx::Point home){lon=home.lon;lat=home.lat;zoom=4;}
+};
 class DXNotebook:public ModuleManager::Instance {
 public:
  explicit DXNotebook(std::string name);~DXNotebook();void postInit()override{}
@@ -60,7 +64,7 @@ private:
 #if DX_HOST_BROWN
  EventHandler<ImGui::WaterFall::WaterfallDrawArgs> cornerHandler_;
 #endif
- void sidebar();void draw();void openWindow();void closeWindow();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void stationMenu(const dx::Decode&,const std::vector<dx::Row>&);void ignoreConfirmation();void sharedFilters();void directionStat(const char*,std::optional<double>);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details(float height);void save();void refresh(bool changed=true);bool historyOptions(bool compact=false);bool timeWindow(const char* label,int& choice);void migration();
+ void sidebar();void draw();void openWindow();void closeWindow();void metadata();void table(const std::vector<dx::Row>&);void map(const std::vector<dx::Row>&);void stationMenu(const dx::Decode&,const std::vector<dx::Row>&);void ignoreConfirmation();void sharedFilters();void directionStat(const char*,std::optional<double>);void uptimeStat(const dx::Snapshot&);bool filterEditor(dx::Filter&,const char*);void settingsWindow();void help();void details(float height);void save();void refresh(bool changed=true);bool historyOptions(bool compact=false);bool timeWindow(const char* label,int& choice);void migration();
  std::pair<std::string,std::string> lookupCountry(const std::string& call)const;
  std::string name_;std::filesystem::path root_;std::unique_ptr<dx::Engine> engine_;dx::Point home_;DXCountryDatabase countries_;
 #if !DX_HOST_BROWN
@@ -71,7 +75,7 @@ private:
  int view_=0,tableTime_=2,sort_=17;bool descending_=true;float split_=.53f,detailsSplit_=.3f;
  double center_=0,rate_=0,lastRefresh_=0;uint64_t generation_=1;ImVec2 windowMin_,windowMax_;
  std::vector<std::unique_ptr<DXChannel>> channels_;std::vector<dx::Preset> presets_=dx::presets();
- dx::Filter tableFilter_;dx::Query tableQuery_,mapQuery_;std::optional<dx::Decode> selected_,detailsContext_;MapView mapView_;
+ dx::Filter tableFilter_;dx::Query tableQuery_,mapQuery_;std::optional<dx::Decode> selected_,detailsContext_;MapView mapView_;bool mapHomePending_=true;
  std::vector<std::vector<dx::Point>> world_;struct CountryLabel{std::string name;dx::Point point;};std::vector<CountryLabel> labels_;
  struct MapCountry{std::string name;std::vector<std::string> keys;std::vector<std::vector<std::vector<dx::Point>>> polygons;std::vector<dx::CountryMesh> offlineMeshes,onlineMeshes;dx::Point label;size_t labelPolygon=0;};std::vector<MapCountry> mapCountries_;
  std::vector<std::string> highlightedCountries_;std::vector<bool> heardCountryOutlines_;

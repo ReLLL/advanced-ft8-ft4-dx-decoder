@@ -40,8 +40,8 @@ int main(){
  q.until=INT64_MAX;q.filter.country="Japan";CHECK(check(q,{}));
  q.filter.country.clear();q.filter.search="DL1AAA";CHECK(check(q,{"DL1AAA"}));
  q.filter.search.clear();q.filter.minSnr=-10;CHECK(check(q,{"DL1AAA"}));
- q.filter={};q.since=now-3600;CHECK(check(q,{"K1AAA","JH1AAA","DL1AAA","VK1AAA"}));
+ q.filter={};q.since=now-3600;CHECK(check(q,{"K1AAA","JH1AAA","DL1AAA","VK1AAA","ZL1AAA"}));
  q.until=now-1800;CHECK(check(q,{}));
  q={};engine.settings({{"history_map_cleared",now-45},{"history_table_cleared",now-45}});CHECK(check(q,{"DL1AAA"}));
- std::cout<<"Bearing/compass samples follow shared time, band, mode, search, country, SNR and history filters; 15-minute maximum and grid evidence retained\n";
+ std::cout<<"Bearing/compass samples follow shared time, band, mode, search, country, SNR and history filters without an extra age limit\n";
 }

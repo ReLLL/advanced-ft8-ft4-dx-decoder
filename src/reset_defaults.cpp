@@ -15,7 +15,7 @@ void DXNotebook::defaultsFooter(){
 void DXNotebook::loadRestoredDefaults(const dx::Snapshot& s){
  if(!defaultsRequest_||s.settings.value("defaults_revision",uint64_t(0))!=defaultsRequest_)return;
  defaultsRequest_=0;defaultsReload_=true;settingsLoaded_=false;paused_=false;
- mapView_=MapView{};presets_=dx::presets();selected_.reset();selectedCountry_.clear();detailsContext_.reset();mapContext_.reset();detailsOpen_=false;detailsOffset_=0;engine_->selectCountry("");
+ mapView_=MapView{};mapHomePending_=true;presets_=dx::presets();selected_.reset();selectedCountry_.clear();detailsContext_.reset();mapContext_.reset();detailsOpen_=false;detailsOffset_=0;engine_->selectCountry("");
  tableQuery_={};mapQuery_={};tableColumnsApplied_=messageColumnsApplied_=countryColumnsApplied_=tabsApplied_=false;resetTableLayouts_=15;
  customDial_[0]=0;std::snprintf(customMode_,sizeof(customMode_),"FT8");settingsError_.clear();cleanupValidation_.clear();cleanupKind_=0;cleanupCountry_.clear();cleanupFrom_[0]=cleanupTo_[0]=0;cleanupCached_=false;
  clearTarget_=0;clearStats_=true;clearRequested_=false;cleanupPreviewId_=cleanupRequestId_=0;

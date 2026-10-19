@@ -12,6 +12,10 @@
 void zone(const char* name){setenv("TZ",name,1);tzset();}
 int main(){
  const int64_t midnight=1704067200;zone("Europe/Istanbul");
+ CHECK(dx::durationText(0)=="00d 00:00"&&dx::durationText(-1)=="00d 00:00"&&dx::durationText(5*86400+12*3600+40*60+59)=="05d 12:40");
+ CHECK(dx::historySpanText(true,midnight,midnight+3661)=="00d 01:01");
+ CHECK(dx::historySpanText(false,midnight,midnight+3661).empty()&&dx::historySpanText(true,0,midnight).empty());
+ CHECK(dx::historySpanText(true,midnight,midnight-1)=="00d 00:00");
  CHECK(dx::localDateTime(midnight)=="2024-01-01 03:00:00 +03:00");
  CHECK(dx::ageText(midnight,midnight+600)=="600s ago"&&dx::ageText(midnight,midnight+601)==dx::localDateTime(midnight));
  CHECK(dx::localDateTimeParse("2024-01-01 03:00:00")==midnight);

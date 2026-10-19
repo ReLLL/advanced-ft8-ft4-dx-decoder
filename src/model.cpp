@@ -118,19 +118,24 @@ MessageKind messageKind(const Meaning& identity){
  return MessageKind::Other;
 }
 ActivityBearing activityBearing(const std::vector<Decode>& decodes){
- ActivityBearing result;double x=0,y=0;for(const auto& d:decodes)if(d.bearing&&d.km&&*d.km>=1&&std::isfinite(*d.bearing)){x+=std::cos(*d.bearing*rad);y+=std::sin(*d.bearing*rad);++result.stations;}
+ ActivityBearing result;double x=0,y=0;for(const auto& d:decodes)if(d.bearing&&d.km&&*d.km>=1&&std::isfinite(*d.km)&&std::isfinite(*d.bearing)){x+=std::cos(*d.bearing*rad);y+=std::sin(*d.bearing*rad);++result.stations;if(!d.countryDistanceGrid.empty())++result.countryEstimates;}
  if(!result.stations)return result;result.alignment=std::hypot(x,y)/result.stations;
  if(result.alignment>=.5)result.degrees=std::fmod(std::atan2(y,x)/rad+360.,360.);return result;
 }
+std::string activityBearingText(const ActivityBearing& bearing){
+ auto prefix=bearing.countryEstimates?"[C] ":"";
+ if(!bearing.degrees)return std::string(prefix)+(bearing.stations?"Mixed directions":"No matching stations");
+ return prefix+std::to_string(int(std::fmod(std::round(*bearing.degrees),360.)))+"° | "+compassDirection(*bearing.degrees);
+}
 std::string compassDirection(double degrees){const char* names[]={"North","Northeast","East","Southeast","South","Southwest","West","Northwest"};return names[int(std::floor((std::fmod(degrees+360.,360.)+22.5)/45.))%8];}
 std::vector<Decode> farthestActivity(Point home,const std::vector<Row>& rows,int count){
- std::vector<Decode> stations;for(const auto& row:rows){auto d=row.decode;if(!d.position||d.identity.transmitter.empty())continue;auto path=distanceBearing(home,*d.position);if(!std::isfinite(path.first)||!std::isfinite(path.second)||path.first<1)continue;d.km=path.first;d.bearing=path.second;stations.push_back(std::move(d));}
+ // Country estimates are transient activity inputs, never station positions or reception evidence.
+ std::vector<Decode> stations;for(const auto& row:rows){auto d=row.decode;auto point=d.position?d.position:gridPoint(d.countryDistanceGrid);if(!point||d.identity.transmitter.empty())continue;auto path=distanceBearing(home,*point);if(!std::isfinite(path.first)||!std::isfinite(path.second)||path.first<1)continue;d.km=path.first;d.bearing=path.second;stations.push_back(std::move(d));}
  std::stable_sort(stations.begin(),stations.end(),[](const Decode& a,const Decode& b){return *a.km>*b.km;});if(stations.size()>size_t(std::max(0,count)))stations.resize(size_t(std::max(0,count)));return stations;
 }
-Query recentActivityQuery(const Query& view,int64_t referenceUtc){
+Query activityQuery(const Query& view,int64_t referenceUtc){
  auto query=view;query.uniqueCalls=true;query.messages=query.countries=false;query.sort=3;query.descending=true;query.offset=0;
- query.filter.hasGrid=true;query.filter.minKm=std::max(1.,query.filter.minKm);
- query.since=std::max(query.since,referenceUtc-activityWindowMinutes*60);query.until=std::min(query.until,referenceUtc);query.referenceUtc=referenceUtc;
+ query.until=std::min(query.until,referenceUtc);query.referenceUtc=referenceUtc;
  return query;
 }
 float arrivalOpacity(double seconds){if(seconds<0||seconds>=arrivalHighlightSeconds)return 0;return float(seconds<.45?seconds/.45:std::pow(1-(seconds-.45)/(arrivalHighlightSeconds-.45),2));}

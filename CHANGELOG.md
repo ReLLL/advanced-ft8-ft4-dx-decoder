@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.0.49 (2026-10-19)
+
+This release includes the development changes from 1.0.46 through 1.0.48 below: filtered live/history DX bearings, country-grid bearing estimates, elapsed history alongside uptime and a home-centered startup map.
+
+- Fix country hover names showing opposite-side countries, such as Mexico over India or Canada over Russia. Keep each polygon continuous across longitude wrapping and use the shared containment function for map tooltips.
+- Cover eastern/western countries, oceans, repeated world copies, dateline holes and Antarctica with bundled-outline regression cases. The corrected shared geometry also applies to country checks and distance estimates without changing saved reception evidence.
+
+## 1.0.48 (unreleased development)
+
+- Start the map centered on the configured home grid at the Home button's zoom level. Apply once per plugin start or settings reset; closing and reopening the window keeps the current map view.
+
+## 1.0.47 (unreleased development)
+
+- Remove the hidden 15-minute cap from DX activity bearing. Use the shared time filter exactly: All with saved history includes the farthest retained stations; Last 15 minutes and custom date ranges use their selected receptions.
+- Keep mode, band, other filters, history/session boundaries and country-estimate labels consistent. Show the active time filter, scope and sample dates in the bearing tooltip; describe historical selections as past activity.
+- Select only the requested farthest unique senders in SQL before reading activity payloads. Add a regression reproducing the WSPR history case: MI0KOA at 3,273 km and 313 degrees must outrank a recent 339 km station when All is selected.
+
+## 1.0.46 (unreleased development)
+
+- Include the existing country-grid approximation in DX activity bearings for every supported mode when country estimates are enabled. Prefer received/cached grids, mark aggregates containing estimates with [C], and show the estimate count in the tooltip.
+- Preserve shared reception filters, live/history updates and the 15-minute activity window. Country fallback does not change reception evidence, map positions, QSO arcs or farthest records.
+- Explain empty activity samples with No recent stations and cover all seven modes, setting changes, shared filters and live arrivals in regression tests.
+- When either saved-history option is enabled, append an amber clock and elapsed history duration in parentheses after normal uptime. Calculate from the oldest retained reception to now and explain the start date, gaps and retention in the tooltip.
+
 ## 1.0.45 (2026-10-17)
 
 This release includes the development changes from 1.0.40 through 1.0.43 below.
