@@ -24,6 +24,8 @@ Choose the package for your SDR application and operating system:
 
 The Windows adapter targets the .NET 9 x64 SDR# application. The macOS installer contains separate SDR++ and SDR++Brown integrations.
 
+**Before receiving, enable automatic clock synchronization.** These modes use timed reception windows; an inaccurate clock can prevent decoding even when signals are visible. See [clock setup and troubleshooting](#clock-synchronization-before-receiving).
+
 ### macOS: SDR++ and SDR++Brown
 
 [Download the latest release](https://github.com/ReLLL/kondor-weak-signal-modes-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26.
@@ -89,6 +91,23 @@ To find it yourself:
 5. Check that the home marker is near your receiving location. If you move the receiver to another place, update its locator.
 
 The code identifies an area; the plugin calculates distances from its center. Six characters give a smaller area than four. `KM69` and `KM69xx` in the instructions are format examples; do not copy them as your location unless they actually match it.
+
+### Clock synchronization: before receiving
+
+Most supported digital weak-signal modes rely on strict UTC time frames. Keep your computer clock synchronized through **NTP (Network Time Protocol)** or another accurate reference. Aim for an error of **less than half a second**; this is a practical target, not a universal decoder cutoff. The [WSJT-X guide](https://wsjt.sourceforge.io/wsjtx-main_en.html) specifies clock accuracy within **±1 second**. Your clock can display local time; you do not need to change its time zone to UTC.
+
+| System | Enable automatic synchronization |
+| --- | --- |
+| **macOS** | Open **Apple menu > System Settings > General > Date & Time**. Enable **Set time and date automatically**. Under **Source / Set**, keep Apple's time server or your network's trusted NTP server. Select the correct time zone, automatically or manually. [Apple instructions](https://support.apple.com/guide/mac-help/mchlp2996/mac). |
+| **Windows** | Open **Start > Settings > Time & language > Date & time**. Enable **Set time automatically**, choose the correct time zone, then click **Sync now** under **Additional settings / Synchronize your clock**. Check that synchronization succeeds. Labels vary by Windows version. [Microsoft instructions](https://support.microsoft.com/en-us/windows/experience/personalization/set-time-date-and-time-zone-settings-in-windows). |
+
+**If signals are visible but few or none decode:**
+
+- Check synchronization again after sleep, a long offline period or resuming a virtual machine. Automatic sync being enabled does not prove the clock is currently accurate. For optional Windows diagnostics, open **Terminal as administrator**: `w32tm /query /status` shows the last successful synchronization; `w32tm /stripchart /computer:time.windows.com /dataonly /samples:5` checks the offset against that server. [Windows time diagnostics](https://learn.microsoft.com/en-us/windows-server/networking/windows-time-service/windows-time-service-tools-and-settings).
+- If sync fails, check connectivity and time-server access. A VPN, firewall or managed network may block NTP traffic on **UDP port 123**. Ask the network administrator for an approved time source; offline operation needs another accurate reference, such as GPS time.
+- A similar DT offset across many stations can suggest a local timing problem, but **DT is not a measurement of your clock error alone**: transmitter timing and receiver/audio delays also contribute. Do not adjust the clock to match one station.
+- Brown's **Source > Time correction** manually shifts capture timestamps; it does not synchronize the system clock. For live reception, normally leave it at **0 seconds** once the clock is correct, unless you deliberately need an offset.
+- After correcting the clock, stop and restart reception and allow a **complete new sequence** to collect. Also check the dial frequency, selected mode and sequence settings; clock synchronization alone cannot fix every decoding problem.
 
 ## What you can see in 1.0.49
 
