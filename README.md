@@ -166,6 +166,8 @@ See [building and releasing](docs/RELEASING.md) and the [Windows build guide](do
 
 ## Feedback wanted
 
+Also try [Maverick Text Modes Decoder: CW / RTTY / JS8 / Olivia / PSK31 / PSK63](https://github.com/ReLLL/cw-notebook), our companion plugin for text modes. Test both plugins and share reception reports, bugs or ideas through their GitHub Issues or [@FoxOnTheRunTr](https://x.com/FoxOnTheRunTr).
+
 We need your feedback: reception results, bugs, feature ideas and general UI suggestions. Post to **[@FoxOnTheRunTr on X / Twitter](https://x.com/FoxOnTheRunTr)** or open a **[GitHub issue](https://github.com/ReLLL/kondor-weak-signal-modes-decoder/issues)**. Tell us what worked and what felt confusing.
 
 For a bug report, include the plugin version, SDR application/build, operating system, radio hardware, mode and steps to reproduce it. Relevant messages or screenshots help; review them for private information before sharing.
