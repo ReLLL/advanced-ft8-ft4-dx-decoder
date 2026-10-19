@@ -1,0 +1,12 @@
+set(IMGUI "${DX_HOST_SOURCE}/core/src/imgui")
+set(IMGUI_GLFW "${DX_HOST_SOURCE}/core/backends/glfw/imgui")
+set(DX_UI plugin plugin_ui status_bar reset_defaults filter_bar compass uptime station_actions help map settings mode_settings settings_saved tiles corner table_views details country_database)
+list(TRANSFORM DX_UI PREPEND "${CMAKE_SOURCE_DIR}/src/")
+list(TRANSFORM DX_UI APPEND ".cpp")
+add_executable(dx_sdrsharp main.cpp notebook_windows.cpp capture_windows.cpp sharp_host.cpp map_links_windows.cpp imgui_host.cpp ${DX_UI}
+ "${IMGUI}/imgui.cpp" "${IMGUI}/imgui_draw.cpp" "${IMGUI}/imgui_tables.cpp" "${IMGUI}/imgui_widgets.cpp"
+ "${IMGUI}/imgui_impl_opengl3.cpp" "${IMGUI_GLFW}/imgui_impl_glfw.cpp")
+target_include_directories(dx_sdrsharp BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat" "${CMAKE_CURRENT_SOURCE_DIR}" "${IMGUI}" "${IMGUI_GLFW}")
+target_link_libraries(dx_sdrsharp PRIVATE dx_core CURL::libcurl glfw opengl32 shell32 comdlg32 winmm gdiplus)
+target_compile_definitions(dx_sdrsharp PRIVATE DX_VERSION_MAJOR=${PROJECT_VERSION_MAJOR} DX_VERSION_MINOR=${PROJECT_VERSION_MINOR} DX_VERSION_PATCH=${PROJECT_VERSION_PATCH} IMGUI_USE_WCHAR32)
+target_compile_options(dx_sdrsharp PRIVATE -Wall -Wextra -Wno-misleading-indentation -ffile-prefix-map=${CMAKE_SOURCE_DIR}=. -ffile-prefix-map=${CMAKE_BINARY_DIR}=build)

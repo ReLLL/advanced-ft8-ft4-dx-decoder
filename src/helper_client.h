@@ -5,6 +5,11 @@
 #include <filesystem>
 #include <sys/types.h>
 namespace dx {
+#ifdef _WIN32
+using HelperDescriptor=intptr_t;
+#else
+using HelperDescriptor=int;
+#endif
 class Helper {
 public:
  explicit Helper(std::filesystem::path binary,bool isolated=false,int timeoutMs=0):binary_(std::move(binary)),isolated_(isolated),timeoutMs_(timeoutMs){}
@@ -12,8 +17,11 @@ public:
  Json decode(const Job& job,const std::atomic<bool>& stopping);
  void stop();pid_t pid()const{return pid_;}
 private:
- void start();void transfer(int fd,void* data,size_t size,bool writing,int64_t deadline,const std::atomic<bool>& stopping);
- std::filesystem::path binary_;pid_t pid_=-1;int input_=-1,output_=-1;
+ void start();void transfer(HelperDescriptor fd,void* data,size_t size,bool writing,int64_t deadline,const std::atomic<bool>& stopping);
+ std::filesystem::path binary_;pid_t pid_=-1;HelperDescriptor input_=-1,output_=-1;
+#ifdef _WIN32
+ void* process_=nullptr;void* job_=nullptr;
+#endif
  bool isolated_=false;int timeoutMs_=0;std::filesystem::path work_;
 };
 int64_t monotonicMs();

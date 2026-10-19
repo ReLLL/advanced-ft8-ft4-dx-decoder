@@ -10,6 +10,8 @@ __pycache__/
 .env.*
 !.env.example
 resources/dreamed-ui/
+windows/**/bin/
+windows/**/obj/
 *.csv
 *.log
 *.pcm

@@ -48,7 +48,7 @@ bool DXNotebook::historyDatabaseSettings(){
   bool ready=snapshot->cleanupPreviewId==cleanupPreviewId_&&snapshot->cleanupPreview==cleanupCriteria_.json();
   if(ready)ImGui::Text("Database matches: %lld receptions",static_cast<long long>(snapshot->cleanupMatches));else ImGui::TextDisabled("Counting matching saved receptions...");
   ImGui::TextUnformatted("Apply this rule to saved SQLite history and known CSV logs, remove matching entries from map/table, recalculate saved statistics and vacuum the database. Deletion cannot be undone. No ignore rules are added. Receptions received after this preview are kept.");ImGui::PopTextWrapPos();
-  ImGui::BeginChild("cleanup_files",{460,90},true,ImGuiWindowFlags_HorizontalScrollbar);ImGui::TextUnformatted((root_/"history.sqlite3").c_str());for(const auto& path:snapshot->csvPaths)ImGui::TextUnformatted(path.c_str());ImGui::EndChild();ImGui::Separator();
+  ImGui::BeginChild("cleanup_files",{460,90},true,ImGuiWindowFlags_HorizontalScrollbar);ImGui::TextUnformatted((root_/"history.sqlite3").u8string().c_str());for(const auto& path:snapshot->csvPaths)ImGui::TextUnformatted(path.c_str());ImGui::EndChild();ImGui::Separator();
   ImGui::BeginDisabled(!ready||snapshot->cleanupBusy||snapshot->moderating);if(ImGui::Button("Delete matching records")){cleanupRequestId_=engine_->deleteSaved(cleanupCriteria_,snapshot->cleanupThroughId);selected_.reset();selectedCountry_.clear();detailsContext_.reset();mapContext_.reset();tableQuery_.offset=0;engine_->selectCountry("");refresh();ImGui::CloseCurrentPopup();}ImGui::EndDisabled();ImGui::SameLine();if(ImGui::Button("Cancel"))ImGui::CloseCurrentPopup();ImGui::EndPopup();
  }
  return changed;

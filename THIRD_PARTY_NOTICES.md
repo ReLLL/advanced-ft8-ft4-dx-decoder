@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Windows SDR# target
+
+SDR# and its plugin SDK are supplied by [Airspy](https://airspy.com/download/). SDK reference assemblies are used at build time and are not redistributed in the plugin package. The adapter calls SDR#'s installed native DSP APIs. SDR# remains a separate application with its own terms.
+
+Windows workers use MSYS2 UCRT64 runtime packages, including GCC/MinGW-w64, FFTW, SQLite, curl and its dependencies, GLFW and dynamically linked Qt Core. Retain the exact runtime versions, package hashes, original licenses and corresponding-source requirements with any public Windows release. The macOS static Qt provenance below applies to macOS builds; Windows uses its separately recorded MSYS2 Qt package.
+
+The selected Windows graphics under `resources/windows-icons/` come from Twemoji 16.0.1, commit `50c7abfe6813680455781862f7b34305cd1eb9f5`, and use CC BY 4.0. Original attribution and license text are retained in `LICENSE-GRAPHICS`; `source.json` records the source archive and file hashes. Graphics are scaled for display. See [Twemoji](https://github.com/jdecked/twemoji) and the retained license.
+
 See [CREDITS.md](CREDITS.md) for acknowledgements of the protocol designers, decoder developers and other upstream contributors. Original copyright and license notices remain authoritative.
 
 ## WSJT development group copyright

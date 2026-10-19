@@ -17,7 +17,7 @@ from stage_runtime_sources import prepare as prepare_runtime_sources
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_FILES = ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "CMakeLists.txt", ".gitignore")
-SOURCE_DIRS = ("src", "scripts", "tests", "docs", "installer", "cmake", "third_party/earcut", "third_party/wsjtx", "third_party/js8call")
+SOURCE_DIRS = ("src", "scripts", "tests", "docs", "installer", "cmake", "windows", "resources/windows-icons", "third_party/earcut", "third_party/wsjtx", "third_party/js8call")
 
 
 def notarize(path, profile):
@@ -78,7 +78,10 @@ def source_files():
     yield ROOT / "resources/cty-LICENSE.txt"
     for name in SOURCE_DIRS:
         for path in sorted((ROOT / name).rglob("*")):
-            if path.is_file() and "__pycache__" not in path.parts:
+            excluded = {"__pycache__", ".git"}
+            if name == "windows":
+                excluded.update(("bin", "obj"))
+            if path.is_file() and not excluded.intersection(path.relative_to(ROOT / name).parts):
                 yield path
     runtime_sources=ROOT / "build-mode-runtime/runtime-source"
     if runtime_sources.exists():
@@ -115,7 +118,7 @@ def main():
     output.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="dx-release-") as temporary:
         package = Path(temporary) / name
-        for relative in ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "scripts/install.py", "scripts/mode_payload.py", "resources/world.geojson", "resources/cty.dat", "resources/cty-LICENSE.txt", "third_party/earcut/LICENSE", "docs/INSTALL.md", "docs/USER_GUIDE.md", "docs/images/live-reception-overview.jpg", "docs/images/decoder-workspace.jpg"):
+        for relative in ("README.md", "CREDITS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md", "scripts/install.py", "scripts/mode_payload.py", "resources/world.geojson", "resources/cty.dat", "resources/cty-LICENSE.txt", "third_party/earcut/LICENSE", "docs/INSTALL.md", "docs/USER_GUIDE.md", "docs/WINDOWS.md", "docs/images/live-reception-overview.jpg", "docs/images/decoder-workspace.jpg"):
             target = package / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, target)

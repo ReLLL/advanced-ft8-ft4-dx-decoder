@@ -5,10 +5,17 @@
 #include <sstream>
 #include <memory>
 #include <iostream>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
 namespace {
 bool transfer(int fd,void* data,size_t size,bool writing){auto* p=static_cast<char*>(data);while(size){ssize_t n=writing?write(fd,p,size):read(fd,p,size);if(n<0&&errno==EINTR)continue;if(n<=0)return false;p+=n;size-=size_t(n);}return true;}
 }
 int main(){
+#ifdef _WIN32
+ _setmode(0,_O_BINARY);_setmode(1,_O_BINARY);
+#endif
  // Preserve a dedicated IPC descriptor: upstream diagnostic output cannot corrupt frames.
  int output=dup(STDOUT_FILENO);dup2(STDERR_FILENO,STDOUT_FILENO);
  mshv_init();
@@ -38,7 +45,7 @@ int main(){
     results.push_back({{"message",msg},{"raw",std::string(line)},{"snr",snr},{"dt",dt},{"audio_hz",audio}});
    }catch(const std::exception&){++malformed;}
   });
-  time_t epoch=request.at("utc_ms").get<int64_t>()/1000;tm utc{};gmtime_r(&epoch,&utc);char stamp[16];strftime(stamp,sizeof(stamp),"%H%M%S",&utc);
+  time_t epoch=request.at("utc_ms").get<int64_t>()/1000;tm utc{};dx::platform::utcTime(&epoch,&utc);char stamp[16];strftime(stamp,sizeof(stamp),"%H%M%S",&utc);
   decoder->SetDecode(samples.data(),count,stamp,0,4,false,true,false);
   auto response=dx::Json{{"id",request.at("id")},{"results",results},{"malformed",malformed}}.dump();
   uint32_t size=uint32_t(response.size());if(size>1024*1024||!transfer(output,&size,4,true)||!transfer(output,response.data(),size,true))return 3;

@@ -1,6 +1,7 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include <json.hpp>
+#include "platform.h"
 #include "table_options.h"
 #include <optional>
 #include <string>

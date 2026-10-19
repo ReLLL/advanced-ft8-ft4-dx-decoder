@@ -32,7 +32,7 @@ std::optional<Job> SlotCapture::feed(const float* samples,size_t count,int64_t e
   if(pcm_.size()==periodSamples_){Job j;j.utcMs=slot*int64_t(periodSamples_)/12;j.dial=dial;j.mode=mode;j.periodMs=int(*duration);j.submode=submode;j.pcm=std::move(pcm_);j.deadlineMs=monotonicMs()+*duration;result=std::move(j);pcm_.clear();}
  }return result;
 }
-Engine::Engine(std::filesystem::path root,std::filesystem::path helper,Point home,std::function<std::pair<std::string,std::string>(const std::string&)> country):root_(std::move(root)),worldFile_(helper.parent_path()/"world.geojson"),helper_(helper),home_(home),country_(std::move(country)),modeHelper_(helper.parent_path()/"dx_modes_decoder",true),js8Helper_(helper.parent_path()/"dx_js8_decoder",true,20000){
+Engine::Engine(std::filesystem::path root,std::filesystem::path helper,Point home,std::function<std::pair<std::string,std::string>(const std::string&)> country):root_(std::move(root)),worldFile_(helper.parent_path()/"world.geojson"),helper_(helper),home_(home),country_(std::move(country)),modeHelper_(platform::executable(helper.parent_path()/"dx_modes_decoder"),true),js8Helper_(platform::executable(helper.parent_path()/"dx_js8_decoder"),true,20000){
  std::filesystem::create_directories(root_);startedAt_=now();table_.uniqueCalls=true;
  decoder_=std::thread(&Engine::decodeLoop,this);modeDecoder_=std::thread(&Engine::modeLoop,this);js8Decoder_=std::thread(&Engine::js8Loop,this);writer_=std::thread(&Engine::storeLoop,this);
 }
@@ -100,7 +100,7 @@ void Engine::importText(Store& store){
  for(int n=0;n<500&&!stopping_;n++){std::string text;int64_t before=logPosition_;if(!std::getline(input,text)||input.eof())break;auto next=input.tellg();if(text.size()>65536){logPosition_=int64_t(next);continue;}std::smatch match;
   if(std::regex_match(text,match,line)){
    tm stamp{};std::istringstream date(match[1].str());date>>std::get_time(&stamp,"%y%m%d_%H%M%S");if(!date.fail()){
-    Decode d;d.utc=timegm(&stamp);d.slotMs=d.utc*1000;d.dial=int64_t(std::llround(std::stod(match[2].str())*1e6));d.mode=match[3];d.snr=std::stoi(match[4]);d.audio=std::stoi(match[6]);d.message=match[7];d.source="legacy";d.raw=text;
+    Decode d;d.utc=platform::utcEpoch(&stamp);d.slotMs=d.utc*1000;d.dial=int64_t(std::llround(std::stod(match[2].str())*1e6));d.mode=match[3];d.snr=std::stoi(match[4]);d.audio=std::stoi(match[6]);d.message=match[7];d.source="legacy";d.raw=text;
     try{store.insert(d,home_,country_);}catch(...){logPosition_=before;throw;}
    }
   }logPosition_=int64_t(next);

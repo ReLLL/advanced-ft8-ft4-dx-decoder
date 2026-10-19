@@ -18,7 +18,7 @@ Choose the package for your SDR application and operating system:
 | --- | --- | --- | --- |
 | SDR++ | macOS 15 or later, Apple Silicon (arm64) | SDR++ 1.2.0, May 28, 2024 build; tested on macOS 26 | Published macOS installer |
 | SDR++Brown | macOS 15 or later, Apple Silicon (arm64) | SDR++Brown 1.2.1, August 4, 2026 build; tested on macOS 26 | Published macOS installer |
-| SDR# / SDR Sharp | Windows 11, x64 .NET 9 host; also tested under x64 emulation on Windows 11 ARM64 | SDR# 1.0.0.1921 in Parallels | Windows preview built and tested locally; download not published yet |
+| SDR# / SDR Sharp | Windows 11, x64 .NET 9 host; also tested under x64 emulation on Windows 11 ARM64 | SDR# 1.0.0.1921 in Parallels | Windows preview ZIP |
 
 The Windows adapter targets the .NET 9 x64 SDR# application. The macOS installer contains separate SDR++ and SDR++Brown integrations.
 
@@ -54,7 +54,7 @@ In the profile's `config.json`, register the absolute path to `dx_notebook.dylib
 
 The Windows preview has decoded an FT8 IQ recording in **SDR# 1.0.0.1921** on Windows 11 ARM64 using x64 emulation. All seven supported modes also pass Windows decoder fixtures. Closing and reopening the decoder window preserves reception and current data while SDR# is playing.
 
-The Windows installer ZIP is built locally and is **not yet included in the public GitHub release**. Once you have the Windows package:
+[Download the Windows preview ZIP](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/download/v1.0.50/advanced-ft8-ft4-dx-decoder-1.0.50-sdrsharp-windows-x64-preview.zip). Installation takes these steps:
 
 1. Install the **x64 .NET 9** version of [SDR# from Airspy](https://airspy.com/download/) and check that SDR# opens normally.
 2. Extract the complete Windows decoder ZIP, then close SDR#.

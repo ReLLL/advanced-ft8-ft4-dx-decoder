@@ -7,7 +7,14 @@
 #include <iostream>
 #include <cmath>
 #include <random>
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
 int main(int argc,char** argv){
+#ifdef _WIN32
+ _setmode(1,_O_BINARY);
+#endif
  if(argc!=5)return 2;int period=std::stoi(argv[1]),submode=period==15?0:period==10?1:period==6?2:period==30?4:-1;if(submode<0)return 2;
  const int nsps=period==15?1920:period==10?1200:period==6?600:3840,start=period==15||period==30?6000:period==10?2400:1200;
  auto frames=Varicode::buildMessageFrames(QString::fromUtf8(argv[2]),QString::fromUtf8(argv[3]),{},QString::fromUtf8(argv[4]),true,false,submode);if(frames.empty())return 3;

@@ -1,0 +1,16 @@
+{
+  "sdk": {
+    "source": "Airspy official SDR# plugin SDK",
+    "url": "https://airspy.com/?ddownload=5944",
+    "sha256": "9680d85714a14f53b046b5651664a10153604cc91d85f18b3eb9580e703b8935",
+    "redistribute_reference_assemblies": false
+  },
+  "validation_host": {
+    "source": "Airspy official SDR# x64 distribution",
+    "revision": "1.0.0.1921",
+    "framework": ".NET 9",
+    "url": "https://airspy.com/?ddownload=6687",
+    "sha256": "b4b8b6491f1013f0fbbd5246e6b81ab8f8f52f8da22e3637a3a493aecfd498d0"
+  },
+  "runtime_packages": "Each Windows ZIP contains runtime-packages.json with exact MSYS2 package versions and verified archive SHA-256 values."
+}

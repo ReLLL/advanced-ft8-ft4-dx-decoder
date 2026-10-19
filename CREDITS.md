@@ -25,6 +25,7 @@ Thank you to **Jordan Sherer KN4CRD**, creator of [JS8Call](https://github.com/j
 - **[MSHV](https://sourceforge.net/projects/mshv/): Hrisimir Hristov, LZ2HV**, for the adapted C++ decoder implementation used through SDR++Brown, based on WSJT-family work. Original WSJT and MSHV author and license notices remain in the corresponding source.
 - **[SDR++](https://github.com/AlexandreRouma/SDRPlusPlus): Alexandre Rouma and contributors**, for the host application and plugin APIs.
 - **[SDR++Brown](https://github.com/sannysanoff/SDRPlusPlusBrown): sannysanoff and contributors**, for the Brown host, its integrations and the decoder source used by the FT8/FT4 build.
+- **[Airspy / SDR#](https://airspy.com/)** developers, for the Windows host, plugin SDK and native downconversion, filtering and resampling APIs used by the SDR# adapter. SDR# is supplied separately by Airspy.
 
 ## Data, maps and supporting software
 
@@ -33,6 +34,8 @@ Thank you to **Jordan Sherer KN4CRD**, creator of [JS8Call](https://github.com/j
 - **Esri and its data contributors**, and **OpenStreetMap contributors / OpenStreetMap France**, for the selectable online basemaps. The map displays the active provider's attribution.
 - **[Mapbox Earcut](https://github.com/mapbox/earcut.hpp)** contributors, for polygon triangulation.
 - **FFTW: Matteo Frigo and Steven G. Johnson**, and the contributors to **SQLite, Dear ImGui, Volk, curl, GNU Compiler Collection** and the other libraries used by the plugin, its hosts and decoder dependencies.
+- **[Twemoji](https://github.com/jdecked/twemoji)** contributors, including Twitter, Inc., for the Windows flag, home and trophy graphics. These graphics use **CC BY 4.0**; the retained license and source manifest accompany them.
+- **[GLFW](https://www.glfw.org/)** and **[MSYS2](https://www.msys2.org/)** contributors, for the Windows interface support and native dependency packages.
 - **[GridTracker](https://gridtracker.org/)** developers and community, for the independent mapping application with which the optional WSJT-X-compatible UDP feed interoperates.
 
 Thank you to the operators who test reception, report bugs and suggest improvements. Project names and acknowledgements do not imply affiliation or endorsement. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the retained upstream license files for redistribution terms; this credits file does not replace them.

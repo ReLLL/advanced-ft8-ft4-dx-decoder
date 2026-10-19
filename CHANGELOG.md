@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.50 (2026-10-19)
+
+- Add a Windows SDR# x64 .NET 9 adapter, separate native interface and isolated FT8/FT4, WSPR/FST4/FST4W/Q65 and JS8 workers. Reuse existing maps, tables, settings and history. Use SDR#'s native downconverter, resampler and filters on private IQ copies.
+- Add a Windows package and installer with dependency checks, runtime licenses, file hashes and upgrade backups. Keep Windows data separate from the macOS hosts.
+- Keep the decoder running when its window is hidden. Bound capture queues and worker deadlines, invalidate missing samples and clean up workers after host exit.
+- Prevent table-layout initialization from saving preferences before stored settings finish loading. This could otherwise overwrite a CSV path with an empty value at first startup.
+- Document supported radio applications, installer and manual file-copy installation for both platforms, and feedback through GitHub or @FoxOnTheRunTr. Keep operating-system requirements in the download section.
+
 ## 1.0.49 (2026-10-19)
 
 This release includes the development changes from 1.0.46 through 1.0.48 below: filtered live/history DX bearings, country-grid bearing estimates, elapsed history alongside uptime and a home-centered startup map.

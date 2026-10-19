@@ -25,7 +25,7 @@ public:
 private:
  bool send(const wsjt::Packet& packet);void close();
  void remember(const Preset& preset);void replay(Store& store,int64_t utc);
- int socket_=-1;std::string address_;int port_=0,minutes_=30;bool replay_=true;
+ intptr_t socket_=-1;std::string address_;int port_=0,minutes_=30;bool replay_=true;
  int64_t cursor_=0,lastPulse_=0,lastReplay_=-10000,retryAt_=0;
  std::map<std::string,Preset> sessions_;std::set<std::string> announced_;
  std::deque<std::pair<Decode,bool>> pending_;GridTrackerState state_;

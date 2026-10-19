@@ -1,13 +1,49 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "gridtracker.h"
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <unistd.h>
+#endif
 #include <cstring>
 #include <cerrno>
 #include <cmath>
 namespace dx {
+namespace {
+std::string socketError(){
+#ifdef _WIN32
+ return "UDP error "+std::to_string(WSAGetLastError());
+#else
+ return std::strerror(errno);
+#endif
+}
+void closeSocket(intptr_t socket){
+#ifdef _WIN32
+ closesocket(SOCKET(socket));
+#else
+ ::close(int(socket));
+#endif
+}
+bool socketReady(){
+#ifdef _WIN32
+ struct Runtime {bool ok;Runtime(){WSADATA data{};ok=WSAStartup(MAKEWORD(2,2),&data)==0;}~Runtime(){if(ok)WSACleanup();}};
+ static Runtime runtime;return runtime.ok;
+#else
+ return true;
+#endif
+}
+bool nonblocking(intptr_t socket){
+#ifdef _WIN32
+ u_long enabled=1;return ioctlsocket(SOCKET(socket),FIONBIO,&enabled)==0;
+#else
+ return fcntl(int(socket),F_SETFL,O_NONBLOCK)>=0;
+#endif
+}
+}
 namespace wsjt {
 namespace {
 void integer(Packet& p,uint64_t value,int width=4){for(int i=width-1;i>=0;i--)p.push_back(uint8_t(value>>(i*8)));}
@@ -26,8 +62,8 @@ Packet decode(const Decode& d,bool fresh){auto p=header(2,identity({d.dial,d.mod
 }
 std::optional<std::pair<uint32_t,std::string>> request(const uint8_t* p,size_t size){if(size<16||read(p)!=0xadbccbda||read(p+4)<2||read(p+4)>3)return {};auto length=read(p+12);if(length>256||length>size-16)return {};return std::make_pair(read(p+8),std::string(reinterpret_cast<const char*>(p+16),length));}
 }
-bool GridTracker::send(const wsjt::Packet& packet){if(socket_<0)return false;if(::send(socket_,packet.data(),packet.size(),0)!=ssize_t(packet.size())){state_.error=std::strerror(errno);return false;}state_.error.clear();return true;}
-void GridTracker::close(){if(socket_>=0){for(const auto& item:sessions_)send(wsjt::header(6,item.first));::close(socket_);socket_=-1;}sessions_.clear();announced_.clear();pending_.clear();lastPulse_=0;state_.lastReply=0;}
+bool GridTracker::send(const wsjt::Packet& packet){if(socket_<0)return false;if(::send(socket_,reinterpret_cast<const char*>(packet.data()),int(packet.size()),0)!=int(packet.size())){state_.error=socketError();return false;}state_.error.clear();return true;}
+void GridTracker::close(){if(socket_>=0){for(const auto& item:sessions_)send(wsjt::header(6,item.first));closeSocket(socket_);socket_=-1;}sessions_.clear();announced_.clear();pending_.clear();lastPulse_=0;state_.lastReply=0;}
 void GridTracker::remember(const Preset& p){if(p.dial<=0||(p.mode!="FT8"&&p.mode!="FT4"))return;if(sessions_.size()<64||sessions_.count(wsjt::identity(p)))sessions_[wsjt::identity(p)]=p;}
 void GridTracker::replay(Store& store,int64_t utc){
  if(!replay_)return;Query q;q.messages=true;q.descending=true;q.since=std::max(utc-minutes_*60,utc/86400*86400);q.until=utc;
@@ -37,15 +73,16 @@ void GridTracker::replay(Store& store,int64_t utc){
 void GridTracker::tick(Store& store,const Json& settings,const GridTrackerContext& context,bool receiving,int64_t utc,int64_t milliseconds){
  bool enabled=settings.value("enabled",false);auto address=settings.value("address",std::string("127.0.0.1"));int port=std::clamp(settings.value("port",2237),1,65535);minutes_=std::clamp(settings.value("replay_minutes",30),1,120);replay_=settings.value("replay",true);
  if(!enabled){if(state_.enabled)close();state_.enabled=false;state_.error.clear();return;}
+ if(!socketReady()){state_.error="UDP networking unavailable";return;}
  bool changed=!state_.enabled||address!=address_||port!=port_;state_.enabled=true;
  if(changed){close();address_=address;port_=port;cursor_=store.lastReceptionId();retryAt_=0;}
  if(socket_<0){if(milliseconds<retryAt_)return;retryAt_=milliseconds+5000;addrinfo hints{};hints.ai_socktype=SOCK_DGRAM;hints.ai_flags=AI_NUMERICHOST|AI_NUMERICSERV;addrinfo* result=nullptr;
   int error=getaddrinfo(address_.c_str(),std::to_string(port_).c_str(),&hints,&result);if(error){state_.error="Enter a valid destination IP address";return;}
-  socket_=::socket(result->ai_family,SOCK_DGRAM,0);if(socket_<0||fcntl(socket_,F_SETFL,O_NONBLOCK)<0||connect(socket_,result->ai_addr,result->ai_addrlen)<0){state_.error=std::strerror(errno);if(socket_>=0)::close(socket_);socket_=-1;freeaddrinfo(result);return;}freeaddrinfo(result);
+  socket_=intptr_t(::socket(result->ai_family,SOCK_DGRAM,0));if(socket_<0||!nonblocking(socket_)||connect(socket_,result->ai_addr,int(result->ai_addrlen))<0){state_.error=socketError();if(socket_>=0)closeSocket(socket_);socket_=-1;freeaddrinfo(result);return;}freeaddrinfo(result);
   if(replay_)cursor_=store.lastReceptionId();replay(store,utc);lastReplay_=milliseconds;lastPulse_=milliseconds-5000;
  }
  for(const auto& p:context.channels)remember(p);
- uint8_t buffer[4096];for(int i=0;i<32;i++){auto count=recv(socket_,buffer,sizeof(buffer),0);if(count<0)break;auto request=wsjt::request(buffer,size_t(count));if(!request||!sessions_.count(request->second))continue;
+ uint8_t buffer[4096];for(int i=0;i<32;i++){auto count=recv(socket_,reinterpret_cast<char*>(buffer),sizeof(buffer),0);if(count<0)break;auto request=wsjt::request(buffer,size_t(count));if(!request||!sessions_.count(request->second))continue;
   if(request->first==0||request->first==7){state_.lastReply=utc;if(request->first==7&&pending_.empty()&&milliseconds-lastReplay_>=2000){replay(store,utc);lastReplay_=milliseconds;}}
   // Reply, Configure, HaltTx, Clear and all other controls are ignored.
  }

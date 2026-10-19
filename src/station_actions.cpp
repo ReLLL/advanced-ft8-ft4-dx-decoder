@@ -56,7 +56,7 @@ void DXNotebook::ignoreConfirmation(){
  const auto& ignored=ignoreTarget_.message?snapshot->ignoredMessages:snapshot->ignoredCalls;
  if(!ignoreFuture&&std::find(ignored.begin(),ignored.end(),ignoreTarget_.value)!=ignored.end())ImGui::TextUnformatted("This identity is already ignored. Its existing ignore rule stays in place.");
  ImGui::PopTextWrapPos();
- if(deleteRecords){ImGui::Separator();ImGui::TextDisabled("%s",(root_/"history.sqlite3").c_str());ImGui::TextUnformatted("CSV logs to clean:");ImGui::BeginChild("purge_paths",{440,80},true,ImGuiWindowFlags_HorizontalScrollbar);for(const auto& path:snapshot->csvPaths)ImGui::TextUnformatted(path.c_str());ImGui::EndChild();}
+ if(deleteRecords){ImGui::Separator();ImGui::TextDisabled("%s",(root_/"history.sqlite3").u8string().c_str());ImGui::TextUnformatted("CSV logs to clean:");ImGui::BeginChild("purge_paths",{440,80},true,ImGuiWindowFlags_HorizontalScrollbar);for(const auto& path:snapshot->csvPaths)ImGui::TextUnformatted(path.c_str());ImGui::EndChild();}
  ImGui::Separator();const char* action=deleteRecords&&ignoreFuture?"Delete and ignore":deleteRecords?"Delete transmitter":"Ignore transmitter";
  if(ImGui::Button(action)){ignoreRequestId_=engine_->moderate(ignoreTarget_,deleteRecords,ignoreFuture);ignoreWaiting_=ignoreRequestId_>0;if(deleteRecords){if(selected_&&ignoreTarget_.matches(*selected_))selected_.reset();if(detailsContext_&&ignoreTarget_.matches(*detailsContext_))detailsContext_.reset();mapContext_.reset();tableQuery_.offset=0;}refresh();ImGui::CloseCurrentPopup();}
  ImGui::SameLine();if(ImGui::Button("Cancel"))ImGui::CloseCurrentPopup();ImGui::EndPopup();

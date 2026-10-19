@@ -1,12 +1,17 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "plugin.h"
 #include <core.h>
+#if DX_HOST_SDRSHARP
+#include "sharp_host.h"
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
 #if DX_HOST_BROWN
 #include <utils/cty.h>
 #endif
 #include <imgui_internal.h>
 #include <fstream>
-#include <dlfcn.h>
 #include <cmath>
 #include <cstdio>
 #include <chrono>
@@ -26,6 +31,7 @@ std::pair<std::string,std::string> countryFor(const DXCountryDatabase& database,
  if(!selected||ambiguous)return {};return {dx::countryName(selected->name),selected->continent};
 }
 }
+#if !DX_HOST_SDRSHARP
 SDRPP_MOD_INFO{"advanced_ft8_ft4_dx_decoder","Advanced FT8/FT4/WSPR DX Decoder","ReLLL",DX_VERSION_MAJOR,DX_VERSION_MINOR,DX_VERSION_PATCH,1};
 DXChannel::DXChannel(DXNotebook* parent,dx::Preset p,double center):owner(parent),preset(std::move(p)){
  name="dx_notebook_"+preset.mode+"_"+std::to_string(preset.dial);
@@ -53,19 +59,28 @@ void DXChannel::audio(dsp::stereo_t* input,int count,void* context){
  auto job=c->capture.feed(mono.data(),mono.size(),c->streamMs,c->preset.dial,c->preset.mode,c->preset.periodMs,c->preset.submode);c->samples=c->capture.samples();c->discontinuities=c->capture.discontinuities();
  c->progress=c->capture.progress();if(job){if(c->replay)job->source="replay";c->owner->engine().enqueue(std::move(*job));}
 }
+#endif
 DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
+#if DX_HOST_SDRSHARP
+ root_=dx::sharpHost().root;
+#else
  const char* dataRoot=std::getenv("ADVANCED_DX_DATA_ROOT");root_=dataRoot&&*dataRoot?std::filesystem::path(dataRoot):std::filesystem::path(std::getenv("HOME"))/
 #if DX_HOST_BROWN
  "Library/Application Support/SDR++Brown DX Notebook";
 #else
  "Library/Application Support/SDR++ DX Notebook";
 #endif
+#endif
 #if DX_HOST_BROWN
  core::configManager.acquire();auto grid=core::configManager.conf.value("operatorLocation","KM69");core::configManager.release();home_=dx::gridPoint(grid).value_or(dx::Point{});
 #else
  core::configManager.acquire();auto instance=core::configManager.conf["moduleInstances"].value(name_,dx::Json::object());receiverGrid_=instance.value("receiverGrid","");receiverCall_=instance.value("receiverCall","");core::configManager.release();home_=dx::gridPoint(receiverGrid_).value_or(dx::Point{NAN,NAN});
 #endif
+#if DX_HOST_SDRSHARP
+ auto binary=dx::sharpHost().binary;
+#else
  Dl_info module{};dladdr(static_cast<const void*>(&_INFO_),&module);auto binary=std::filesystem::path(module.dli_fname).parent_path();
+#endif
  // Brown adds regional tables after cty.dat. Those describe provinces rather
  // than DXCC countries and must not inflate the countries-heard statistic.
 #if DX_HOST_BROWN
@@ -74,7 +89,7 @@ DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
  countries_.load(binary/"cty.dat");
 #endif
  tiles_=std::make_unique<dx::Tiles>(root_/"map-cache");
- engine_=std::make_unique<dx::Engine>(root_,binary/"dx_decoder",home_,[this](const std::string& call){return countryFor(countries_,call);});
+ engine_=std::make_unique<dx::Engine>(root_,dx::platform::executable(binary/"dx_decoder"),home_,[this](const std::string& call){return countryFor(countries_,call);});
  std::ifstream file(binary/"world.geojson");auto world=dx::Json::parse(file,nullptr,false);if(!world.is_discarded())for(const auto& f:world["features"]){
   auto coords=f["geometry"]["coordinates"];if(f["geometry"]["type"]=="Polygon")coords=dx::Json::array({coords});
   MapCountry country;country.name=f["properties"].value("NAME_EN",f["properties"].value("NAME",""));for(const auto& polygon:coords){std::vector<std::vector<dx::Point>> rings;for(const auto& ring:polygon){std::vector<dx::Point> line;for(const auto& v:ring)line.push_back({v[1].get<double>(),v[0].get<double>()});world_.push_back(line);rings.push_back(std::move(line));}country.polygons.push_back(std::move(rings));}double largest=-1;for(size_t index=0;index<country.polygons.size();index++){const auto& ring=country.polygons[index][0];double area=0;for(size_t i=1;i<ring.size();i++)area+=ring[i-1].lon*ring[i].lat-ring[i].lon*ring[i-1].lat;if(std::abs(area)>largest){largest=std::abs(area);country.labelPolygon=index;}}
@@ -82,6 +97,7 @@ DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
   const auto& p=f["properties"];if(p.contains("LABEL_X")&&p.contains("LABEL_Y"))labels_.push_back({p.value("NAME_EN",p.value("NAME","")),{p["LABEL_Y"].get<double>(),p["LABEL_X"].get<double>()}});
  }
  flagCodes_["UNITEDSTATES"]="US";
+#if !DX_HOST_SDRSHARP
 #if DX_HOST_BROWN
  cornerHandler_={[](ImGui::WaterFall::WaterfallDrawArgs args,void* p){static_cast<DXNotebook*>(p)->cornerNotifications(args);},this};gui::waterfall.afterWaterfallDraw.bindHandler(&cornerHandler_);
 #endif
@@ -107,17 +123,22 @@ DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
   auto* settings=ImGui::FindWindowByName("Advanced FT8/FT4/WSPR DX Decoder Settings###dx_notebook_settings");focused|=active&&settings&&active->RootWindow==settings&&ImGui::GetActiveID()!=0;
   if(inside||s->ownsGesture_||s->popup_||(focused&&!clicked)){gui::waterfall.inputHandled=true;gui::mainWindow.lockWaterfallControls=true;}if(!down)s->ownsGesture_=false;
  },this};gui::waterfall.onInputProcess.bindHandler(&inputHandler_);
+#endif
 }
 DXNotebook::~DXNotebook(){
+#if !DX_HOST_SDRSHARP
 #if DX_HOST_BROWN
  gui::waterfall.afterWaterfallDraw.unbindHandler(&cornerHandler_);gui::mainWindow.onWaterfallDrawn.unbindHandler(&drawHandler_);
 #else
  ImGui::RemoveContextHook(ImGui::GetCurrentContext(),drawHook_);
 #endif
- for(const auto& icon:cornerIcons_)if(icon.second){auto texture=icon.second;glDeleteTextures(1,&texture);}gui::waterfall.onInputProcess.unbindHandler(&inputHandler_);channels_.clear();gui::menu.removeEntry(name_);engine_.reset();if(homeIcon_)glDeleteTextures(1,&homeIcon_);
+ gui::waterfall.onInputProcess.unbindHandler(&inputHandler_);gui::menu.removeEntry(name_);
+#endif
+ for(const auto& icon:cornerIcons_)if(icon.second){auto texture=icon.second;glDeleteTextures(1,&texture);}channels_.clear();engine_.reset();if(homeIcon_)glDeleteTextures(1,&homeIcon_);
 }
 void DXNotebook::enable(){enabled_=true;open_=true;present_=true;mapHomePending_=true;engine_->resetStats();if(settingsLoaded_&&clearOnStart_){if(historyAll_)historyTableCleared_=historyMapCleared_=0;tableCleared_=mapCleared_=int64_t(time(nullptr))+1;selected_.reset();selectedCountry_.clear();engine_->selectCountry("");tableQuery_.offset=0;save();refresh();}}
 void DXNotebook::disable(){enabled_=false;cornerVisible_=false;channels_.clear();engine_->invalidateAdditional();engine_->active(false);}
+#if !DX_HOST_SDRSHARP
 void DXNotebook::metadata(){
 #if DX_HOST_BROWN
  core::configManager.acquire();auto homeGrid=core::configManager.conf.value("operatorLocation","");auto operatorCall=core::configManager.conf.value("operatorCallsign","");core::configManager.release();
@@ -140,6 +161,7 @@ void DXNotebook::metadata(){
  std::string bands,modes;for(auto& c:channels_){if(!bands.empty()){bands+=',';modes+=',';}bands+=dx::bandName(c->preset.dial);modes+=c->preset.mode;}engine_->alertContext(bands,ft8_,ft4_,modes);
  dx::GridTrackerContext forwarding;forwarding.grid=homeGrid;forwarding.call=operatorCall;for(auto& c:channels_)forwarding.channels.push_back(c->preset);engine_->gridTrackerContext(std::move(forwarding));
 }
+#endif
 std::string DXNotebook::handleDebugCommand(const std::string& command,const std::string& args){std::lock_guard<std::mutex> lock(uiMutex_);
  if(command=="status"){auto s=engine_->snapshot();auto cache=tiles_->stats();dx::Json channels=dx::Json::array();for(auto& c:channels_)channels.push_back({{"mode",c->preset.mode},{"dial",c->preset.dial},{"blocks",c->blocks.load()},{"progress",c->progress.load()},{"level_dbfs",c->level.load()},{"samples",c->samples.load()},{"discontinuities",c->discontinuities.load()},{"stream_ms",c->streamMs.load()}});
   return dx::Json{{"version",DX_VERSION},{"channels",channels},{"paused",paused_},{"jobs",s->decodedJobs},{"skipped",s->skipped},{"queue",s->queued},{"pending_writes",s->pendingWrites},{"countries",s->stats.countries},{"stations",s->stats.stations},{"messages",s->stats.messages},{"last_decode_ms",s->lastDecodeMs},{"helper_pid",s->helperPid},{"error",s->error},{"query_ms",s->queryMs},{"marker_counts",mapView_.counts},{"sound",alerts_.value("sound",false)},{"sort",sort_},{"descending",descending_},{"center_hz",center_},{"night",mapView_.night},{"map_lon",mapView_.lon},{"map_lat",mapView_.lat},{"exchange_paths",s->paths.size()},{"map_zoom",mapView_.zoom},{"map_cache",{{"requests",cache.requests},{"disk_hits",cache.diskHits},{"bytes",cache.diskBytes},{"resident",cache.resident},{"wanted",cache.wanted},{"ready",cache.ready},{"viewport_ms",cache.viewportMs}}},{"map_base",mapView_.base},{"country_labels",mapView_.labels},{"map_rows",s->mapCount},{"csv_path",s->csvPath},{"csv_bytes",s->csvBytes},{"csv_error",s->csvError},{"csv_catching_up",s->csvCatchingUp},{"arrivals",s->arrivals.size()},{"newest_reception",s->newestReceptionUtc},{"direction_stations",s->direction.stations},{"direction_country_estimates",s->direction.countryEstimates},{"direction_degrees",s->direction.degrees?dx::Json(*s->direction.degrees):dx::Json(nullptr)},{"direction_alignment",s->direction.alignment},{"farthest_country",s->stats.farthestCountry},{"table_rows",s->tableCount},{"message_kind",int(tableFilter_.messageKind)},{"highlight_countries",mapView_.highlightCountries},{"table_cleared",tableCleared_},{"map_cleared",mapCleared_}}.dump();}
@@ -154,7 +176,9 @@ std::string DXNotebook::handleDebugCommand(const std::string& command,const std:
  return "{\"error\":\"Unknown command\"}";
 }
 std::pair<std::string,std::string> DXNotebook::lookupCountry(const std::string& call)const{return countryFor(countries_,call);}
+#if !DX_HOST_SDRSHARP
 MOD_EXPORT void _INIT_(){}
 MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name){return new DXNotebook(std::move(name));}
 MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance){delete instance;}
 MOD_EXPORT void _END_(){}
+#endif

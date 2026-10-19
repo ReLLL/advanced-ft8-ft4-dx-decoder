@@ -9,11 +9,29 @@
 #include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
+#ifdef _WIN32
+#include <io.h>
+#include <sys/stat.h>
+#endif
 namespace dx {
 namespace {
 std::string field(const std::string& value){std::string out="\"";for(char c:value){if(c=='\"')out+='\"';out+=c;}return out+'\"';}
-std::string stamp(int64_t utc){time_t time=utc;tm date{};gmtime_r(&time,&date);char value[32];strftime(value,sizeof(value),"%Y-%m-%dT%H:%M:%SZ",&date);return value;}
-struct File {int fd=-1;explicit File(const std::filesystem::path& path,int flags):fd(open(path.c_str(),flags,0600)){if(fd<0)throw std::runtime_error(std::strerror(errno));}~File(){if(fd>=0)close(fd);}void write(const std::string& value){size_t offset=0;while(offset<value.size()){auto count=::write(fd,value.data()+offset,value.size()-offset);if(count<0&&errno==EINTR)continue;if(count<=0)throw std::runtime_error("CSV write failed");offset+=size_t(count);}}void flush(){if(fsync(fd)!=0)throw std::runtime_error("CSV flush failed");}};
+std::string stamp(int64_t utc){time_t time=utc;tm date{};platform::utcTime(&time,&date);char value[32];strftime(value,sizeof(value),"%Y-%m-%dT%H:%M:%SZ",&date);return value;}
+int openLog(const std::filesystem::path& path,int flags){
+#ifdef _WIN32
+ return _wopen(path.c_str(),flags|_O_BINARY,_S_IREAD|_S_IWRITE);
+#else
+ return open(path.c_str(),flags,0600);
+#endif
+}
+int flushLog(int fd){
+#ifdef _WIN32
+ return _commit(fd);
+#else
+ return fsync(fd);
+#endif
+}
+struct File {int fd=-1;explicit File(const std::filesystem::path& path,int flags):fd(openLog(path,flags)){if(fd<0)throw std::runtime_error(std::strerror(errno));}~File(){close();}void close(){if(fd>=0){::close(fd);fd=-1;}}void write(const std::string& value){size_t offset=0;while(offset<value.size()){auto count=::write(fd,value.data()+offset,value.size()-offset);if(count<0&&errno==EINTR)continue;if(count<=0)throw std::runtime_error("CSV write failed");offset+=size_t(count);}}void flush(){if(flushLog(fd)!=0)throw std::runtime_error("CSV flush failed");}};
 // A CSV record ends only at a newline outside quoted fields. Preserve escaped
 // quotes while copying unchanged records verbatim.
 template<class Callback> uint64_t records(std::ifstream& input,uint64_t start,Callback callback){
@@ -44,7 +62,7 @@ void CsvLog::trim(uint64_t maximumBytes){
  if(bytes_<=maximumBytes)return;auto header=csvLogHeader();uint64_t target=maximumBytes*85/100,cut=0,last=header.size();std::ifstream input(path_,std::ios::binary);input.seekg(header.size());
  records(input,header.size(),[&](uint64_t start,uint64_t,int64_t,const std::array<std::string,28>&){last=start;if(!cut&&bytes_-start+header.size()<=target)cut=start;});if(!cut)cut=last;
  auto temporary=path_;temporary+=".trimming-"+std::to_string(getpid());std::error_code error;if(std::filesystem::exists(temporary))throw std::runtime_error("CSV temporary file already exists");
- try{File output(temporary,O_WRONLY|O_CREAT|O_EXCL);output.write(header);input.clear();input.seekg(cut);char buffer[65536];while(input.read(buffer,sizeof(buffer))||input.gcount()){output.write(std::string(buffer,size_t(input.gcount())));}if(!input.eof())throw std::runtime_error("CSV trim read failed");output.flush();input.close();std::filesystem::rename(temporary,path_);bytes_=header.size()+bytes_-cut;}catch(...){std::filesystem::remove(temporary,error);throw;}
+ try{File output(temporary,O_WRONLY|O_CREAT|O_EXCL);output.write(header);input.clear();input.seekg(cut);char buffer[65536];while(input.read(buffer,sizeof(buffer))||input.gcount()){output.write(std::string(buffer,size_t(input.gcount())));}if(!input.eof())throw std::runtime_error("CSV trim read failed");output.flush();output.close();input.close();std::filesystem::rename(temporary,path_);bytes_=header.size()+bytes_-cut;}catch(...){std::filesystem::remove(temporary,error);throw;}
 }
 int64_t CsvLog::purge(Store& store,const std::filesystem::path& path,const std::string& call,int64_t throughId){return purge(store,path,IgnoreTarget{upper(call),false},throughId);}
 int64_t CsvLog::purge(Store& store,const std::filesystem::path& path,const IgnoreTarget& target,int64_t throughId){return purgeMatching(store,path,throughId,[&](const auto& fields){return upper(fields[target.message?20:4])==target.value;});}
@@ -64,7 +82,7 @@ int64_t CsvLog::purgeMatching(Store& store,const std::filesystem::path& path,int
    copy.clear();copy.seekg(start);std::string record(size_t(finish-start),'\0');copy.read(record.data(),record.size());if(size_t(copy.gcount())!=record.size())throw std::runtime_error("CSV purge read failed");output.write(record);
   });
   if(end!=std::filesystem::file_size(resolved))throw std::runtime_error("CSV purge found an incomplete record");
-  output.flush();input.close();copy.close();
+  output.flush();output.close();input.close();copy.close();
   if(!removed){std::filesystem::remove(temporary);return 0;}
   // Keep the original append watermark when deletion removes a trimmed log's tail.
   // Save it before rename so a crash cannot resurrect previously trimmed records.

@@ -37,7 +37,7 @@ std::string csvField(std::string s){size_t p=0;while((p=s.find('"',p))!=std::str
 }
 void Store::exec(const std::string& sql){char* error=nullptr;if(sqlite3_exec(db_,sql.c_str(),nullptr,nullptr,&error)!=SQLITE_OK){std::string message=error?error:"SQLite error";sqlite3_free(error);throw std::runtime_error(message);}}
 Store::Store(const std::filesystem::path& file){
- if(sqlite3_open_v2(file.c_str(),&db_,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_NOMUTEX,nullptr)!=SQLITE_OK){std::string error=sqlite3_errmsg(db_);sqlite3_close(db_);db_=nullptr;throw std::runtime_error(error);}
+ if(sqlite3_open_v2(file.u8string().c_str(),&db_,SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_NOMUTEX,nullptr)!=SQLITE_OK){std::string error=sqlite3_errmsg(db_);sqlite3_close(db_);db_=nullptr;throw std::runtime_error(error);}
  sqlite3_busy_timeout(db_,2000);sqlite3_create_function(db_,"dx_match",2,SQLITE_UTF8|SQLITE_DETERMINISTIC,nullptr,sqlMatch,nullptr,nullptr);
  sqlite3_create_function(db_,"dx_band",1,SQLITE_UTF8|SQLITE_DETERMINISTIC,nullptr,sqlBand,nullptr,nullptr);
  sqlite3_create_function(db_,"dx_country_distance",1,SQLITE_UTF8,this,[](sqlite3_context* c,int,sqlite3_value** v){try{auto* store=static_cast<Store*>(sqlite3_user_data(c));auto* country=sqlite3_value_text(v[0]);auto estimate=store->countryDistance(country?reinterpret_cast<const char*>(country):"");if(estimate)sqlite3_result_double(c,estimate->km);else sqlite3_result_null(c);}catch(const std::bad_alloc&){sqlite3_result_error_nomem(c);}},nullptr,nullptr);
@@ -228,7 +228,7 @@ std::vector<Decode> Store::uniqueMessages(const Decode& station,const Query& vie
  std::vector<Decode> out;while(step(db_,s.get())==SQLITE_ROW)out.push_back(Decode::fromJson(Json::parse(column(s.get(),0))));return out;
 }
 int64_t Store::importBridge(const std::filesystem::path& path,Point home,const std::function<std::pair<std::string,std::string>(const std::string&)>& country){
- if(!std::filesystem::exists(path))return 0;sqlite3* source=nullptr;int code=sqlite3_open_v2(path.c_str(),&source,SQLITE_OPEN_READONLY,nullptr);std::unique_ptr<sqlite3,decltype(&sqlite3_close)> owner(source,sqlite3_close);if(code!=SQLITE_OK)throw std::runtime_error("Legacy history unavailable");
+ if(!std::filesystem::exists(path))return 0;sqlite3* source=nullptr;int code=sqlite3_open_v2(path.u8string().c_str(),&source,SQLITE_OPEN_READONLY,nullptr);std::unique_ptr<sqlite3,decltype(&sqlite3_close)> owner(source,sqlite3_close);if(code!=SQLITE_OK)throw std::runtime_error("Legacy history unavailable");
  sqlite3_busy_timeout(source,2000);auto cursor=getSetting("import_bridge_cursor",0).get<int64_t>();auto s=prepare(source,"SELECT rowid,payload FROM decodes WHERE rowid>? ORDER BY rowid LIMIT 500");sqlite3_bind_int64(s.get(),1,cursor);int64_t added=0;
  while(step(source,s.get())==SQLITE_ROW){auto j=Json::parse(column(s.get(),1));j["source"]="legacy";auto d=Decode::fromJson(j);if(insert(d,home,country))++added;cursor=sqlite3_column_int64(s.get(),0);}
  setSetting("import_bridge_cursor",cursor);return added;

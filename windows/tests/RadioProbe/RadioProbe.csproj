@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net9.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting><UseWindowsForms>true</UseWindowsForms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors><DebugType>embedded</DebugType>
+    <RestorePackagesPath>$(MSBuildThisFileDirectory)..\..\..\build-windows-tools\nuget</RestorePackagesPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="SDRSharp.Radio"><HintPath>$(SdrSharpSdk)/SDRSharp.Radio.dll</HintPath></Reference>
+    <Compile Include="../../SDRSharp.AdvancedDx/CaptureChannel.cs" Link="CaptureChannel.cs" />
+  </ItemGroup>
+</Project>

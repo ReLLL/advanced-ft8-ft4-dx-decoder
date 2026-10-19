@@ -4,7 +4,7 @@ Read when building, installing or validating the Windows SDR# adapter.
 
 The Windows target adds an SDR# adapter and a separate native decoder window. It reuses the map, tables, filters, history, country lookup, notifications and decoder engines. The macOS SDR++ and SDR++Brown integrations remain separate.
 
-Target: **SDR# x64 .NET 9**, using the official Airspy SDK. Validation uses **SDR# 1.0.0.1921** in Windows 11 ARM64 under Parallels, through Windows x64 emulation. The actual host decoded a synthetic FT8 IQ recording into the table, receiver distances, compass and waterfall notifications. Reception continued with the decoder window closed; reopening preserved current data. This target does not cover x86 or .NET 8 SDR# builds. Windows binaries are being validated locally; the published macOS release is unchanged. Official SDK and host archive hashes are recorded in `windows/source-pin.json`.
+Target: **SDR# x64 .NET 9**, using the official Airspy SDK. Validation uses **SDR# 1.0.0.1921** in Windows 11 ARM64 under Parallels, through Windows x64 emulation. The actual host decoded a synthetic FT8 IQ recording into the table, receiver distances, compass and waterfall notifications. Reception continued with the decoder window closed; reopening preserved current data. This target does not cover x86 or .NET 8 SDR# builds. The [GitHub release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest) includes a Windows preview ZIP alongside the macOS packages. Official SDK and host archive hashes are recorded in `windows/source-pin.json`.
 
 ## Install and use
 
@@ -35,6 +35,8 @@ python windows/tests/decoders.py build-windows/windows
 ```
 
 `scripts/package_windows.py` accepts the native build, adapter DLL, UCRT64 runtime prefix, objdump and a fresh output folder. It follows native DLL imports recursively, copies runtime licenses, maps and icons, and writes a SHA-256 manifest and ZIP. It never bundles SDR# or SDK reference assemblies. Public releases must also include matching runtime source/provenance and complete the release audit.
+
+Create the separate runtime-source asset with `scripts/package_windows_sources.py --package <windows.zip> --binary-cache <verified-msys2-package-cache> --cache build-windows-runtime-source --output <windows-runtime-source.tar>`. It verifies the cached binary package hashes, maps every shipped runtime DLL to its MSYS2 source package, and bundles the matching source archives, build recipes and ownership/checksum manifest. Publish this asset beside the plugin and the project's corresponding-source archive. The source archives are already compressed; the outer TAR avoids another compression pass.
 
 ## Validation and data safety
 

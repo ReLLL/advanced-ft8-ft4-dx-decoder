@@ -1,16 +1,21 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #include "helper_client.h"
+#ifndef _WIN32
 #include <spawn.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <poll.h>
 #include <fcntl.h>
 #include <unistd.h>
+#endif
 #include <chrono>
 #include <stdexcept>
+#ifndef _WIN32
 extern char** environ;
+#endif
 namespace dx {
 int64_t monotonicMs(){return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();}
+#ifndef _WIN32
 void Helper::stop(){if(input_>=0)close(input_);if(output_>=0)close(output_);input_=output_=-1;if(pid_>0){kill(isolated_?-pid_:pid_,SIGKILL);int status;while(waitpid(pid_,&status,0)<0&&errno==EINTR){}}pid_=-1;if(!work_.empty()){std::error_code error;std::filesystem::remove_all(work_,error);work_.clear();}}
 void Helper::start(){
  if(isolated_){auto pattern=(std::filesystem::temp_directory_path()/"dx-mode-worker-XXXXXX").string();auto* owned=mkdtemp(pattern.data());if(!owned)throw std::runtime_error("Decoder scratch unavailable");work_=owned;}
@@ -34,6 +39,7 @@ void Helper::transfer(int fd,void* data,size_t size,bool writing,int64_t deadlin
   ssize_t n=writing?write(fd,p,size):read(fd,p,size);if(n<0&&(errno==EAGAIN||errno==EINTR))continue;if(n<=0)throw std::runtime_error("Decoder helper exited");p+=n;size-=size_t(n);
  }
 }
+#endif
 Json Helper::decode(const Job& job,const std::atomic<bool>& stopping){
  try{size_t count=job.pcm.size();std::vector<std::pair<const int16_t*,size_t>> spans;
   if(!job.audio.empty()){

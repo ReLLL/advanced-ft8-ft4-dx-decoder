@@ -4,6 +4,8 @@ Read when: changing host integration, building a matching binary or publishing a
 
 ## Build requirements
 
+For the additional Windows SDR# target, follow [WINDOWS.md](WINDOWS.md). Its native dependencies, SDK and runtime provenance are separate from macOS. Before publishing a Windows asset, verify the installed .NET 9 host, live/replay capture, closing/reopening, worker recovery, installer rollback, complete runtime dependency closure, retained licenses and corresponding source for every shipped library. Do not redistribute SDR# SDK reference assemblies. A development ZIP alone is not a completed public release audit.
+
 Apple Silicon macOS, Xcode command-line tools, CMake, Python 3 and matching SDR++ and SDR++Brown applications. Build dependencies can be installed with `brew install cmake ninja fftw volk gcc boost`. Additional modes use the staged, pinned WSJT-X source and a Fortran compiler. Each build uses its selected host's FFTW library and verified macOS 15-compatible GCC runtime copies; do not substitute the developer machine's newer runtime. Runtime provenance and license files ship with both helpers. See [additional modes](MULTIMODE.md).
 
 The pinned host source is `679f48deee5299a199d15d30e6e785fac6054896` in [SDRPlusPlusBrown](https://github.com/sannysanoff/SDRPlusPlusBrown). The staging script copies the required source and applies FFT plan lifetime corrections; it preserves the upstream checkout.

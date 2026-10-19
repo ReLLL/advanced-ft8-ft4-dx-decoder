@@ -5,12 +5,20 @@
 #include "cartography.h"
 #include "modes.h"
 #include "status_bar.h"
+#if DX_HOST_SDRSHARP
+#include "capture_windows.h"
+class DXHostInstance {
+public:virtual ~DXHostInstance()=default;virtual void postInit(){};virtual void enable()=0;virtual void disable()=0;virtual bool isEnabled()=0;
+};
+#else
 #include <module.h>
 #include <gui/gui.h>
 #include <signal_path/signal_path.h>
 #include <dsp/sink/handler_sink.h>
 #include <dsp/demod/ssb.h>
 #include <dsp/multirate/rational_resampler.h>
+using DXHostInstance=ModuleManager::Instance;
+#endif
 #if DX_HOST_BROWN
 #include <utils/cty.h>
 using DXCountryDatabase=utils::CTY;
@@ -21,6 +29,7 @@ using DXCountryDatabase=dx::CountryDatabase;
 #include <map>
 class DXNotebook;
 namespace dx {std::optional<std::string> chooseCsvLog(const std::string& current);bool playAlertSound(const std::string& name);std::vector<unsigned char> homeIconPixels();std::vector<unsigned char> trophyIconPixels();std::vector<unsigned char> flagIconPixels(const std::string& code);void openCallsignLookup(const std::string& call,int provider);}
+#if !DX_HOST_SDRSHARP
 struct DXChannel {
  DXNotebook* owner;dx::Preset preset;std::string name;dsp::channel::RxVFO* vfo=nullptr;
  dsp::demod::SSB<dsp::stereo_t> usb;dsp::sink::Handler<dsp::stereo_t> sink;
@@ -32,12 +41,13 @@ struct DXChannel {
  DXChannel(DXNotebook*,dx::Preset,double center);~DXChannel();
  static void audio(dsp::stereo_t*,int,void*);
 };
+#endif
 struct MapView {
  double lon=0,lat=0,zoom=1;bool night=true,grids=false,labels=true,counts=false,animatePaths=true,highlightCountries=true,snrColors=true,hideHome=false;
  float countryColor[4]={.32f,.72f,.40f,.16f};int recentPaths=3,base=2;
  void centerHome(dx::Point home){lon=home.lon;lat=home.lat;zoom=4;}
 };
-class DXNotebook:public ModuleManager::Instance {
+class DXNotebook:public DXHostInstance {
 public:
  explicit DXNotebook(std::string name);~DXNotebook();void postInit()override{}
  void enable()override;void disable()override;bool isEnabled()override{return enabled_;}
@@ -47,6 +57,10 @@ public:
 #endif
  ;
  dx::Engine& engine(){return *engine_;}
+#if DX_HOST_SDRSHARP
+ void renderWindowsFrame();void showWindows();bool windowsVisible()const{return open_;}
+ void receiveWindowsAudio(dx::SharpAudio);
+#endif
 private:
  void tableTabs();void countryTable(const std::vector<dx::CountrySummary>& rows);
  int tableTab_=0,messageSort_=18,countrySort_=5;bool messageDescending_=true,countryDescending_=true,tabsApplied_=false,messageColumnsApplied_=false;
@@ -84,6 +98,9 @@ private:
  std::string selectedCountry_;int detailsOffset_=0;char customSince_[32]="",customUntil_[32]="";int64_t customSinceEpoch_=0,customUntilEpoch_=0;
  std::string watchCalls_;int64_t heardAlert_=0;dx::Json alerts_=dx::Json::object();dx::Filter alertFilter_;
  std::mutex uiMutex_;
+#if DX_HOST_SDRSHARP
+ std::mutex captureMutex_;
+#endif
  bool sortDefaultsPending_=true,settingsOpen_=false,settingsPresent_=false,settingsVisible_=false;int settingsPage_=0,columnLayout_=0;
  std::vector<dx::TableColumnSetting> tableColumns_;bool tableColumnsApplied_=false;
  ImVec2 settingsMin_,settingsMax_;std::string settingsError_;
@@ -97,5 +114,7 @@ private:
  uint64_t defaultsRequest_=0;bool defaultsReload_=false,resetWindowGeometry_=false;unsigned int resetTableLayouts_=0;
  void defaultsFooter();void loadRestoredDefaults(const dx::Snapshot&);
  bool gridTrackerEnabled_=false,gridTrackerReplay_=true;int gridTrackerPort_=2237,gridTrackerMinutes_=30;char gridTrackerAddress_[64]="127.0.0.1";std::string gridTrackerHost_="127.0.0.1";
+#if !DX_HOST_SDRSHARP
  EventHandler<ImGuiContext*> drawHandler_;EventHandler<ImGui::WaterFall::InputHandlerArgs> inputHandler_;
+#endif
 };
