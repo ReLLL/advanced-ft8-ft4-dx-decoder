@@ -11,6 +11,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+WINDOWS_OS_IMPORTS = {"authz", "mpr", "opengl32"}
 SYSTEM = set("advapi32 bcrypt cfgmgr32 comctl32 comdlg32 crypt32 cryptbase cryptsp d3d9 dnsapi dwmapi dxgi gdi32 gdiplus imm32 iphlpapi kernel32 msvcrt ncrypt netapi32 normaliz ntdll ole32 oleaut32 powrprof psapi rpcrt4 secur32 setupapi shell32 shlwapi sspicli user32 userenv ucrtbase version winhttp winmm winspool wldap32 ws2_32 wtsapi32".split())
 
 
@@ -44,7 +45,7 @@ def main():
         imports = subprocess.check_output([args.objdump, "-p", str(binary)], text=True, encoding="utf-8", errors="replace")
         for name in re.findall(r"DLL Name:\s*(\S+)", imports):
             key = name.lower()
-            if key.startswith(("api-ms-", "ext-ms-")) or key.removesuffix(".dll") in SYSTEM:
+            if key.startswith(("api-ms-", "ext-ms-")) or key.removesuffix(".dll") in SYSTEM | WINDOWS_OS_IMPORTS:
                 continue
             if key in copied:
                 continue
@@ -86,7 +87,7 @@ def main():
     files = {str(p.relative_to(output)).replace(os.sep, "/"): hashlib.sha256(p.read_bytes()).hexdigest()
              for p in sorted(output.rglob("*")) if p.is_file()}
     (output / "manifest.json").write_text(json.dumps({"platform": "windows-x64", "host": "SDR# .NET 9", "files": files}, indent=2), encoding="utf-8")
-    archive = output.with_suffix(".zip")
+    archive = output.parent / (output.name + ".zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as handle:
         for file in sorted(output.rglob("*")):
             if file.is_file():

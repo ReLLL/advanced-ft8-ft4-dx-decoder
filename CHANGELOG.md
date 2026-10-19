@@ -1,9 +1,10 @@
 # Changelog
 
-## 1.0.52 (in development)
+## 1.0.53 (2026-10-19)
 
 - Rename the project to Kondor Weak Signal Modes Decoder: FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65. Compact controls and installer filenames use Kondor Weak Signal Modes Decoder.
 - Migrate previous sidebar registrations while retaining receiver settings, enabled state, history, data folders and saved window layout.
+- Add macOS/Windows clock synchronization instructions and a companion invitation to Maverick Text Modes Decoder.
 
 ## 1.0.50 (2026-10-19)
 
