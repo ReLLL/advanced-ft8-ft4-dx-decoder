@@ -32,7 +32,7 @@ std::pair<std::string,std::string> countryFor(const DXCountryDatabase& database,
 }
 }
 #if !DX_HOST_SDRSHARP
-SDRPP_MOD_INFO{"advanced_ft8_ft4_dx_decoder","Advanced FT8/FT4/WSPR DX Decoder","ReLLL",DX_VERSION_MAJOR,DX_VERSION_MINOR,DX_VERSION_PATCH,1};
+SDRPP_MOD_INFO{"advanced_ft8_ft4_dx_decoder",DX_PRODUCT_NAME,"ReLLL",DX_VERSION_MAJOR,DX_VERSION_MINOR,DX_VERSION_PATCH,1};
 DXChannel::DXChannel(DXNotebook* parent,dx::Preset p,double center):owner(parent),preset(std::move(p)){
  name="dx_notebook_"+preset.mode+"_"+std::to_string(preset.dial);
  float bandwidth=preset.mode=="FT8"||preset.mode=="FT4"?3000:6000;
@@ -118,9 +118,9 @@ DXNotebook::DXNotebook(std::string name):name_(std::move(name)){
   inside=(s->open_&&inside)||(s->settingsVisible_&&mouse.x>=s->settingsMin_.x&&mouse.x<=s->settingsMax_.x&&mouse.y>=s->settingsMin_.y&&mouse.y<=s->settingsMax_.y);
   inside|=s->cornerVisible_&&mouse.x>=s->cornerMin_.x&&mouse.x<=s->cornerMax_.x&&mouse.y>=s->cornerMin_.y&&mouse.y<=s->cornerMax_.y;
   bool clicked=false,down=false;for(int i=0;i<3;i++){clicked|=ImGui::IsMouseClicked(i);down|=ImGui::IsMouseDown(i);}if(clicked&&(inside||s->popup_))s->ownsGesture_=true;
-  auto* window=ImGui::FindWindowByName("Advanced FT8/FT4/WSPR DX Decoder###dx_notebook");auto* active=GImGui->ActiveIdWindow;bool focused=active&&window&&active->RootWindow==window&&ImGui::GetActiveID()!=0;
+  auto* window=ImGui::FindWindowByName(DX_MAIN_WINDOW);auto* active=GImGui->ActiveIdWindow;bool focused=active&&window&&active->RootWindow==window&&ImGui::GetActiveID()!=0;
   focused|=s->selected_&&window&&GImGui->NavWindow&&GImGui->NavWindow->RootWindow==window&&(ImGui::IsKeyDown(ImGuiKey_UpArrow)||ImGui::IsKeyDown(ImGuiKey_DownArrow));
-  auto* settings=ImGui::FindWindowByName("Advanced FT8/FT4/WSPR DX Decoder Settings###dx_notebook_settings");focused|=active&&settings&&active->RootWindow==settings&&ImGui::GetActiveID()!=0;
+  auto* settings=ImGui::FindWindowByName(DX_SETTINGS_WINDOW);focused|=active&&settings&&active->RootWindow==settings&&ImGui::GetActiveID()!=0;
   if(inside||s->ownsGesture_||s->popup_||(focused&&!clicked)){gui::waterfall.inputHandled=true;gui::mainWindow.lockWaterfallControls=true;}if(!down)s->ownsGesture_=false;
  },this};gui::waterfall.onInputProcess.bindHandler(&inputHandler_);
 #endif

@@ -47,7 +47,7 @@ struct Tiles::Impl {
   curl_easy_setopt(curl,CURLOPT_SSL_OPTIONS,CURLSSLOPT_NATIVE_CA);curl_easy_setopt(curl,CURLOPT_CAINFO,nullptr);curl_easy_setopt(curl,CURLOPT_CAPATH,nullptr);
 #endif
   auto url=key.layer==2?"https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/"+std::to_string(key.z)+"/"+std::to_string(key.y)+"/"+std::to_string(key.x):"https://a.tile.openstreetmap.fr/hot/"+std::to_string(key.z)+"/"+std::to_string(key.x)+"/"+std::to_string(key.y)+".png";
-  curl_easy_setopt(curl,CURLOPT_URL,url.c_str());curl_easy_setopt(curl,CURLOPT_USERAGENT,"AdvancedFT8FT4DXDecoder/" DX_VERSION " (+https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder)");
+  curl_easy_setopt(curl,CURLOPT_URL,url.c_str());curl_easy_setopt(curl,CURLOPT_USERAGENT,"KondorAdvancedDecoder/" DX_VERSION " (+https://github.com/ReLLL/kondor-advanced-decoder)");
   curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION,receive);curl_easy_setopt(curl,CURLOPT_WRITEDATA,&bytes);curl_easy_setopt(curl,CURLOPT_CONNECTTIMEOUT_MS,2500L);curl_easy_setopt(curl,CURLOPT_TIMEOUT_MS,5000L);curl_easy_setopt(curl,CURLOPT_NOSIGNAL,1L);
   std::string responseHeaders;curl_easy_setopt(curl,CURLOPT_HEADERFUNCTION,headers);curl_easy_setopt(curl,CURLOPT_HEADERDATA,&responseHeaders);
   Request request{this,key};curl_easy_setopt(curl,CURLOPT_XFERINFOFUNCTION,progress);curl_easy_setopt(curl,CURLOPT_XFERINFODATA,&request);curl_easy_setopt(curl,CURLOPT_NOPROGRESS,0L);curl_easy_setopt(curl,CURLOPT_HTTP_VERSION,CURL_HTTP_VERSION_2TLS);

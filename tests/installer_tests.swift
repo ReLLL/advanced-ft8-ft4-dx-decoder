@@ -48,23 +48,27 @@ import Darwin
     }
     static func main() throws {
         for standard in [false, true] {
-            try scenario("rename migration preserves receiver settings and sidebar") { root in
-                let (engine, profile, host) = try fixture(root, standard: standard)
-                let config = profile.appendingPathComponent("config.json")
-                var data = try JSONSerialization.jsonObject(with: Data(contentsOf: config)) as! [String: Any]
-                let oldName = "Advanced FT8/FT4 DX Decoder"
-                data["moduleInstances"] = [oldName: ["module": PluginInstaller.module, "enabled": false, "receiverGrid": "KM69KW", "receiverCall": "TA1ABC"]]
-                data["menuElements"] = [["name": oldName, "open": false], ["name": oldName, "open": true]]
-                try JSONSerialization.data(withJSONObject: data).write(to: config)
-                _ = try engine.install(profile: profile, host: host)
-                let updated = try JSONSerialization.jsonObject(with: Data(contentsOf: config)) as! [String: Any]
-                let instances = updated["moduleInstances"] as! [String: [String: Any]]
-                try check(instances[oldName] == nil && instances.count == 1, "old registration removed")
-                try check(instances[PluginInstaller.instance]?["receiverGrid"] as? String == "KM69KW", "grid preserved")
-                try check(instances[PluginInstaller.instance]?["receiverCall"] as? String == "TA1ABC", "call preserved")
-                try check(instances[PluginInstaller.instance]?["enabled"] as? Bool == false, "disabled choice preserved")
-                let menu = updated["menuElements"] as! [[String: Any]]
-                try check(menu.count == 1 && menu[0]["name"] as? String == PluginInstaller.instance && menu[0]["open"] as? Bool == false, "sidebar renamed once")
+            for oldName in PluginInstaller.previousNames {
+                try scenario("rename from \(oldName) preserves receiver settings and sidebar") { root in
+                    let (engine, profile, host) = try fixture(root, standard: standard)
+                    let config = profile.appendingPathComponent("config.json")
+                    var data = try JSONSerialization.jsonObject(with: Data(contentsOf: config)) as! [String: Any]
+                    data["moduleInstances"] = [oldName: ["module": PluginInstaller.module, "enabled": false, "receiverGrid": "KM69KW", "receiverCall": "TA1ABC"]]
+                    data["menuElements"] = [["name": oldName, "open": false], ["name": oldName, "open": true]]
+                    try JSONSerialization.data(withJSONObject: data).write(to: config)
+                    _ = try engine.install(profile: profile, host: host)
+                    let updated = try JSONSerialization.jsonObject(with: Data(contentsOf: config)) as! [String: Any]
+                    let instances = updated["moduleInstances"] as! [String: [String: Any]]
+                    try check(instances[oldName] == nil && instances.count == 1, "old registration removed")
+                    try check(instances[PluginInstaller.instance]?["receiverGrid"] as? String == "KM69KW", "grid preserved")
+                    try check(instances[PluginInstaller.instance]?["receiverCall"] as? String == "TA1ABC", "call preserved")
+                    try check(instances[PluginInstaller.instance]?["enabled"] as? Bool == false, "disabled choice preserved")
+                    let menu = updated["menuElements"] as! [[String: Any]]
+                    try check(menu.count == 1 && menu[0]["name"] as? String == PluginInstaller.instance && menu[0]["open"] as? Bool == false, "sidebar renamed once")
+                    let first = try Data(contentsOf: config)
+                    _ = try engine.install(profile: profile, host: host)
+                    try check(Data(contentsOf: config) == first, "repeated rename keeps settings stable")
+                }
             }
         }
         for standard in [false, true] {

@@ -9,7 +9,7 @@ public sealed class AdvancedDxPlugin : ISharpPlugin, ICanLazyLoadGui, ISupportSt
     private ISharpControl? control;
     private DecoderBridge? bridge;
     private ControlPanel? panel;
-    public string DisplayName => "Advanced FT8/FT4/WSPR DX Decoder";
+    public string DisplayName => "Kondor Advanced Decoder";
     public string Category => "Digital";
     public string MenuItemName => DisplayName;
     public bool IsActive => bridge?.Enabled == true;
@@ -48,7 +48,7 @@ internal sealed class ControlPanel : UserControl
         AutoSize = true;
         var layout = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
         var enabled = new CheckBox { Text = "Enable decoder", Checked = bridge.Enabled, AutoSize = true };
-        var open = new Button { Text = "Open Advanced DX Decoder", AutoSize = true };
+        var open = new Button { Text = "Open Kondor Advanced Decoder", AutoSize = true };
         enabled.CheckedChanged += (_, _) => bridge.Enabled = enabled.Checked;
         open.Click += (_, _) => bridge.ShowWindow();
         layout.Controls.AddRange([enabled, open, status]);

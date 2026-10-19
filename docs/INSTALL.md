@@ -7,7 +7,7 @@ Read when: installing, upgrading, removing or restoring the plugin.
 Requirements: Apple Silicon and macOS 15+, with **SDR++** at `/Applications/SDR++.app` or **SDR++Brown** at `/Applications/SDR++Brown.app`. The installer does not restrict installation by version number or an exact core-library fingerprint. It checks the selected application and the libraries required by its plugin build. Standard SDR++ does not require Brown. Python, Homebrew and developer tools are not required for the native installer. Testing used SDR++ 1.2.0 and SDR++Brown 1.2.1 on macOS 26.
 
 1. Install either supported radio application in Applications.
-2. Open the release DMG, or extract the ZIP, and open **Install Advanced FT8-FT4-WSPR DX Decoder**.
+2. Open the release DMG, or extract the ZIP, and open **Install Kondor Advanced Decoder**.
 3. The installer detects an installed host. If both are installed, select **SDR++** or **SDR++Brown**. An existing **Home locator** is prefilled. With an empty field, macOS Location Services can suggest one after permission. Check the location estimate before installing, or click **Find grid on map**. It can also be set later.
 4. Click **Install**. Missing first-run host settings are prepared automatically. A running host is asked to quit normally; the installer waits for its settings and never force-quits it.
 5. Click **Open SDR++** or **Open SDR++Brown**, then open the plugin from the sidebar.
@@ -25,6 +25,8 @@ Use your actual receiving location. Distances and bearings use the center of the
 Installation is per user and requires no administrator password. Default profiles: `~/Library/Application Support/sdrpp-brown/` for Brown and `~/Library/Application Support/sdrpp/` for standard SDR++. The installer copies the plugin, helper and world geometry into `plugins/dx-notebook/` and registers the module. It verifies payload checksums, the selected app identity and required host libraries before writing. Version numbers and rebuilt-core fingerprints do not block installation.
 
 Settings and reception logs stay in place. A timestamped backup of the original configuration and previous plugin goes under `dx-notebook-backups/`. Copied files are verified before replacement, configuration replacement is atomic, and a handled installation failure restores the previous plugin/configuration. The installer also checks that the selected host has not restarted or changed the configuration before committing changes. Do not launch the selected host during installation.
+
+Kondor upgrades rename earlier sidebar entries while preserving their receiver grid, callsign and enabled state. Existing module IDs, data directories and helper filenames remain stable so reception history and preferences carry forward.
 
 ## Custom profile or upgrade
 
@@ -61,13 +63,13 @@ This example uses Brown's default profile. Replace `YOUR_MAC_USERNAME` with your
     "/Users/YOUR_MAC_USERNAME/Library/Application Support/sdrpp-brown/plugins/dx-notebook/dx_notebook.dylib"
   ],
   "moduleInstances": {
-    "Advanced FT8/FT4/WSPR DX Decoder": {
+    "Kondor Advanced Decoder": {
       "module": "advanced_ft8_ft4_dx_decoder",
       "enabled": true
     }
   },
   "menuElements": [
-    { "name": "Advanced FT8/FT4/WSPR DX Decoder", "open": true }
+    { "name": "Kondor Advanced Decoder", "open": true }
   ]
 }
 ```

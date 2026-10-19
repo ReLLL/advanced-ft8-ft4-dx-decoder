@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.51 (in development)
+
+- Rename the project to Kondor FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65 Advanced Decoder. Compact controls and installer filenames use Kondor Advanced Decoder.
+- Migrate previous sidebar registrations while retaining receiver settings, enabled state, history, data folders and saved window layout.
+
 ## 1.0.50 (2026-10-19)
 
 - Add a Windows SDR# x64 .NET 9 adapter, separate native interface and isolated FT8/FT4, WSPR/FST4/FST4W/Q65 and JS8 workers. Reuse existing maps, tables, settings and history. Use SDR#'s native downconverter, resampler and filters on private IQ copies.

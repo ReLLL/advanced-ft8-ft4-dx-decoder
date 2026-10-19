@@ -17,7 +17,7 @@ void DXNotebook::settingsWindow() {
  ImGui::SetNextWindowSizeConstraints({580,380},{FLT_MAX,FLT_MAX});
  ImGui::PushStyleColor(ImGuiCol_WindowBg,{.075f,.095f,.105f,1});
  ImGui::PushStyleColor(ImGuiCol_ChildBg,{.075f,.095f,.105f,1});
- bool visible=ImGui::Begin("Advanced FT8/FT4/WSPR DX Decoder Settings###dx_notebook_settings",&settingsOpen_,ImGuiWindowFlags_NoCollapse);
+ bool visible=ImGui::Begin(DX_SETTINGS_WINDOW,&settingsOpen_,ImGuiWindowFlags_NoCollapse);
  settingsVisible_=true;settingsMin_=ImGui::GetWindowPos();auto size=ImGui::GetWindowSize();settingsMax_={settingsMin_.x+size.x,settingsMin_.y+size.y};
  if(visible){
   const float contentHeight=std::max(80.f,ImGui::GetContentRegionAvail().y-ImGui::GetFrameHeight()-ImGui::GetStyle().ItemSpacing.y*3-1);
@@ -83,8 +83,8 @@ void DXNotebook::settingsWindow() {
   }else if(settingsPage_==5){
    ImGui::TextUnformatted("Viewing history");changed|=historyOptions();ImGui::TextWrapped("Saved history loads in the background. Filters still apply; uptime remains this session. Both options start off.");ImGui::Separator();ImGui::BeginDisabled(historyAll_);if(tableCleared_&&ImGui::Button("Restore table history")){tableCleared_=0;changed=true;}if(mapCleared_&&ImGui::Button("Restore map history")){mapCleared_=0;changed=true;}ImGui::EndDisabled();
    ImGui::Separator();ImGui::TextUnformatted("History and export");ImGui::TextWrapped("Exports use the current table filters and time window.");
-   if(ImGui::Button("Export table CSV"))engine_->exportData(tableQuery_,root_/"Advanced FT8-FT4-WSPR DX Decoder.csv",true);
-   if(ImGui::Button("Export table JSON"))engine_->exportData(tableQuery_,root_/"Advanced FT8-FT4-WSPR DX Decoder.json",false);
+   if(ImGui::Button("Export table CSV"))engine_->exportData(tableQuery_,root_/"Kondor Advanced Decoder.csv",true);
+   if(ImGui::Button("Export table JSON"))engine_->exportData(tableQuery_,root_/"Kondor Advanced Decoder.json",false);
    auto moderation=engine_->snapshot();ImGui::Separator();ImGui::Text("Ignored identities: %zu | messages: %zu",moderation->ignoredCalls.size(),moderation->ignoredMessages.size());if(!moderation->ignoredCalls.empty()||!moderation->ignoredMessages.empty()){std::string calls;for(const auto& call:moderation->ignoredCalls){if(!calls.empty())calls+=", ";calls+=call;}if(!calls.empty())ImGui::TextWrapped("%s",calls.c_str());for(const auto& message:moderation->ignoredMessages)ImGui::TextWrapped("\"%s\"",message.c_str());if(ImGui::Button("Unignore all")){engine_->unignoreAll();tableFilter_.excludeCall.clear();changed=true;}ImGui::TextWrapped("Unignore all allows future receptions; deleted records stay deleted.");}
    ImGui::Separator();ImGui::TextUnformatted("Persistent reception CSV log");ImGui::TextWrapped("Clear and startup can reset views and session stats. Delete transmitter and History DB cleanups remove saved receptions after confirmation. Ignore alone keeps saved data. Commas, quotes and line breaks are preserved.");
    ImGui::SetNextItemWidth(std::max(150.f,ImGui::GetContentRegionAvail().x-70));if(ImGui::InputText("CSV file",csvPath_,sizeof(csvPath_),ImGuiInputTextFlags_EnterReturnsTrue)&&csvPath_[0]){csvLogPath_=csvPath_;changed=true;}

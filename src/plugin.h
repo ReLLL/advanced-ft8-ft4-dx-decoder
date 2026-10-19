@@ -1,5 +1,6 @@
 // Copyright 2026 ReLLL. SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "branding.h"
 #include "engine.h"
 #include "tiles.h"
 #include "cartography.h"

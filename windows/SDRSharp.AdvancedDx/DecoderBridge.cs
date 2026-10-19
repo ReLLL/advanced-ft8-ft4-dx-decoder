@@ -68,8 +68,8 @@ internal unsafe sealed class DecoderBridge : IIQProcessor, IStreamProcessor, IDi
             workerRunning = !process.HasExited;
             process.ErrorDataReceived += (_, e) => { if (ReferenceEquals(worker, process) && !string.IsNullOrEmpty(e.Data)) error = e.Data; };
             process.BeginErrorReadLine();
-            writer = new Thread(() => WriteLoop(process, queue, token)) { IsBackground = true, Name = "Advanced DX capture IPC" };
-            reader = new Thread(() => ReadLoop(process, token)) { IsBackground = true, Name = "Advanced DX status IPC" };
+            writer = new Thread(() => WriteLoop(process, queue, token)) { IsBackground = true, Name = "Kondor capture IPC" };
+            reader = new Thread(() => ReadLoop(process, token)) { IsBackground = true, Name = "Kondor status IPC" };
             writer.Start(); reader.Start();
         }
         catch (Exception e) when (e is IOException or System.ComponentModel.Win32Exception) { error = "Decoder could not start: " + e.Message; }

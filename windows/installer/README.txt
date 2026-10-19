@@ -1,9 +1,10 @@
-Advanced FT8/FT4/WSPR DX Decoder for SDR# (.NET 9, x64)
-Developer: ReLLL - https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder
+Kondor FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65 Advanced Decoder
+For SDR# (.NET 9, x64)
+Developer: ReLLL - https://github.com/ReLLL/kondor-advanced-decoder
 
 1. Extract this entire ZIP. Close SDR#.
 2. Open Install.cmd and select SDRSharp.dotnet9.exe in your SDR# folder.
-3. Open SDR#. Find Advanced FT8/FT4/WSPR DX Decoder in the plugins panel.
+3. Open SDR#. Find Kondor Advanced Decoder in the plugins panel.
 
 Manual installation (without Install.cmd):
 Close SDR#. Copy this ZIP's top-level AdvancedDx folder into Plugins beside
@@ -35,4 +36,4 @@ need a matching adapter and are not covered by this target.
 
 We need feedback, reception reports and feature ideas:
 X / Twitter: https://x.com/FoxOnTheRunTr (@FoxOnTheRunTr)
-GitHub: https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/issues
+GitHub: https://github.com/ReLLL/kondor-advanced-decoder/issues

@@ -50,12 +50,12 @@ void integer(Packet& p,uint64_t value,int width=4){for(int i=width-1;i>=0;i--)p.
 void text(Packet& p,const std::string& value){integer(p,value.size());p.insert(p.end(),value.begin(),value.end());}
 uint32_t read(const uint8_t* p){return uint32_t(p[0])<<24|uint32_t(p[1])<<16|uint32_t(p[2])<<8|p[3];}
 }
-std::string identity(const Preset& p){return "Advanced DX "+p.mode+" "+std::to_string(p.dial)+" Hz";}
+std::string identity(const Preset& p){return "Kondor "+p.mode+" "+std::to_string(p.dial)+" Hz";}
 Packet header(uint32_t type,const std::string& id){Packet p;integer(p,0xadbccbda);integer(p,2);integer(p,type);text(p,id);return p;}
 Packet heartbeat(const std::string& id){auto p=header(0,id);integer(p,2);text(p,DX_VERSION);text(p,"receive-only");return p;}
 Packet status(const Preset& preset,const std::string& call,const std::string& grid,bool receiving){
  auto p=header(1,identity(preset));integer(p,uint64_t(preset.dial),8);text(p,preset.mode);text(p,"");text(p,"");text(p,preset.mode);
- p.insert(p.end(),{0,0,uint8_t(receiving)});integer(p,0);integer(p,0);text(p,call.empty()?"SWL":call);text(p,grid);text(p,"");p.push_back(0);text(p,"");p.insert(p.end(),{0,0});integer(p,50);integer(p,preset.mode=="FT4"?0xffffffff:15);text(p,"Advanced DX receive only");text(p,"");return p;
+ p.insert(p.end(),{0,0,uint8_t(receiving)});integer(p,0);integer(p,0);text(p,call.empty()?"SWL":call);text(p,grid);text(p,"");p.push_back(0);text(p,"");p.insert(p.end(),{0,0});integer(p,50);integer(p,preset.mode=="FT4"?0xffffffff:15);text(p,"Kondor receive only");text(p,"");return p;
 }
 Packet decode(const Decode& d,bool fresh){auto p=header(2,identity({d.dial,d.mode}));p.push_back(uint8_t(fresh));integer(p,uint32_t((d.utc%86400+86400)%86400*1000));integer(p,uint32_t(d.snr));
  double dt=d.dt.value_or(0);uint64_t bits=0;static_assert(sizeof(dt)==sizeof(bits));std::memcpy(&bits,&dt,sizeof(bits));integer(p,bits,8);integer(p,uint32_t(std::max(0,d.audio)));text(p,d.mode=="FT4"?"+":"~");text(p,d.message);p.insert(p.end(),{0,uint8_t(d.source=="replay")});return p;

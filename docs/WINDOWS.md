@@ -4,7 +4,7 @@ Read when building, installing or validating the Windows SDR# adapter.
 
 The Windows target adds an SDR# adapter and a separate native decoder window. It reuses the map, tables, filters, history, country lookup, notifications and decoder engines. The macOS SDR++ and SDR++Brown integrations remain separate.
 
-Target: **SDR# x64 .NET 9**, using the official Airspy SDK. Validation uses **SDR# 1.0.0.1921** in Windows 11 ARM64 under Parallels, through Windows x64 emulation. The actual host decoded a synthetic FT8 IQ recording into the table, receiver distances, compass and waterfall notifications. Reception continued with the decoder window closed; reopening preserved current data. This target does not cover x86 or .NET 8 SDR# builds. The [GitHub release](https://github.com/ReLLL/advanced-ft8-ft4-dx-decoder/releases/latest) includes a Windows preview ZIP alongside the macOS packages. Official SDK and host archive hashes are recorded in `windows/source-pin.json`.
+Target: **SDR# x64 .NET 9**, using the official Airspy SDK. Validation uses **SDR# 1.0.0.1921** in Windows 11 ARM64 under Parallels, through Windows x64 emulation. The actual host decoded a synthetic FT8 IQ recording into the table, receiver distances, compass and waterfall notifications. Reception continued with the decoder window closed; reopening preserved current data. This target does not cover x86 or .NET 8 SDR# builds. The [GitHub release](https://github.com/ReLLL/kondor-advanced-decoder/releases/latest) includes a Windows preview ZIP alongside the macOS packages. Official SDK and host archive hashes are recorded in `windows/source-pin.json`.
 
 ## Install and use
 
@@ -12,7 +12,7 @@ Extract the complete Windows ZIP. Close SDR#, run `Install.cmd`, then select `SD
 
 To install manually, close SDR# and copy the ZIP's top-level `AdvancedDx` folder into `Plugins` beside `SDRSharp.dotnet9.exe`. Keep its structure: `Plugins\AdvancedDx\SDRSharp.AdvancedDx.dll` is the adapter, and `Plugins\AdvancedDx\AdvancedDx\` holds the native worker and all accompanying files. Use the configured directory instead if `SDRSharp.config` overrides `core.pluginsDirectory`. Move an old plugin folder to a backup outside the plugins directory before upgrading. No `Plugins.xml` entry is needed. [Full manual installation notes](INSTALL.md#windows-installation-sdr).
 
-In SDR#'s plugins panel, enable **Advanced FT8/FT4/WSPR DX Decoder** and use **Open Advanced DX Decoder**. Closing its window hides it; reception continues while enabled and the radio is running. Reopen brings the current data to the front. A failed worker can be restarted with Open.
+In SDR#'s plugins panel, enable **Kondor Advanced Decoder** and use **Open Kondor Advanced Decoder**. Closing its window hides it; reception continues while enabled and the radio is running. Reopen brings the current data to the front. A failed worker can be restarted with Open.
 
 FT8, FT4 and WSPR are enabled initially. Settings provide the other supported modes. Only presets inside the captured spectrum can receive. SDR#'s native downconverter, resampler and filters prepare private copies of the IQ data; the adapter never modifies the host buffer. Decoding runs in bounded, lower-priority processes. Stopping/retuning invalidates incomplete captures. Audio gaps invalidate a sequence rather than joining unrelated samples.
 
