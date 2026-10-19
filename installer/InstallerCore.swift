@@ -25,8 +25,8 @@ struct InstallReceipt {
 }
 
 struct PluginInstaller {
-    static let instance = "Kondor Advanced Decoder"
-    static let previousNames = ["Advanced FT8/FT4/WSPR DX Decoder", "Advanced FT8/FT4 DX Decoder", "DX Notebook"]
+    static let instance = "Kondor Weak Signal Modes Decoder"
+    static let previousNames = ["Kondor Advanced Decoder", "Advanced FT8/FT4/WSPR DX Decoder", "Advanced FT8/FT4 DX Decoder", "DX Notebook"]
     static let module = "advanced_ft8_ft4_dx_decoder"
     static let names = ["dx_notebook.dylib", "dx_decoder", "world.geojson"]
     static let modeNames = ["dx_modes_decoder", "dx_wspr_decoder", "libgfortran.5.dylib", "libquadmath.0.dylib", "libgcc_s.1.1.dylib", "COPYING.RUNTIME", "COPYING.LIB", "mode-runtime.json"]

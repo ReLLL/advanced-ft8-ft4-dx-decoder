@@ -10,7 +10,7 @@ import re
 from mode_payload import mode_files, NATIVE_BINARIES
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_NAME = "Install Kondor Advanced Decoder.app"
+APP_NAME = "Install Kondor Weak Signal Modes Decoder.app"
 
 
 def sign(path, identity, helper=False):
@@ -67,8 +67,8 @@ def build_installer(package, version, identity, brown_app, sdrpp_app=None):
     if sdrpp_app:
         add_payload(package, contents, "PayloadSDRPP", "bin-sdrpp", sdrpp_app, version)
     info = {"CFBundleIdentifier": "com.github.ReLLL.advanced-ft8-ft4-dx-decoder.installer",
-            "CFBundleName": "Kondor Advanced Decoder Installer",
-            "CFBundleDisplayName": "Install Kondor Advanced Decoder",
+            "CFBundleName": "Kondor Weak Signal Modes Decoder Installer",
+            "CFBundleDisplayName": "Install Kondor Weak Signal Modes Decoder",
             "CFBundleExecutable": "Installer", "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": version, "CFBundleVersion": version,
             "LSMinimumSystemVersion": "15.0", "NSHighResolutionCapable": True,

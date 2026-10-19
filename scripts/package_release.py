@@ -111,7 +111,7 @@ def main():
         manifest = json.loads((build / "dx_notebook.host.json").read_text())
         if manifest != {"host": host, "version": version}:
             raise ValueError("Binary host/version manifest does not match this release")
-    name = "kondor-advanced-decoder-" + version
+    name = "kondor-weak-signal-modes-decoder-" + version
     if mode_files(args.build):
         prepare_runtime_sources(ROOT / "build-mode-runtime/runtime-source")
     output = ROOT / "dist"
@@ -168,7 +168,7 @@ def main():
                 if path.is_file():
                     bundle.write(path, path.relative_to(package.parent))
         disk = output / (name + "-installer-macos-arm64.dmg")
-        subprocess.run(["hdiutil", "create", "-ov", "-format", "UDZO", "-volname", "Kondor Advanced Decoder",
+        subprocess.run(["hdiutil", "create", "-ov", "-format", "UDZO", "-volname", "Kondor Weak Signal Modes Decoder",
                         "-srcfolder", str(package), str(disk)], check=True)
         if args.notary_profile:
             sign(disk, args.signing_identity)

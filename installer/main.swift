@@ -57,7 +57,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, 
         if let index = manifests.indices.first(where: { FileManager.default.fileExists(atPath: manifests[$0].appPath) }) { selectedHost = index }
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 550, height: 580),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Install Kondor Advanced Decoder"
+        window.title = "Install Kondor Weak Signal Modes Decoder"
         window.delegate = self
         window.center()
         let stack = NSStackView()
@@ -69,7 +69,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, 
             stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -28),
             stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24)
         ])
-        let title = NSTextField(wrappingLabelWithString: "Kondor FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65 Advanced Decoder")
+        let title = NSTextField(wrappingLabelWithString: "Kondor Weak Signal Modes Decoder: FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65")
         title.font = .boldSystemFont(ofSize: 22)
         stack.addArrangedSubview(title)
         let intro = NSTextField(wrappingLabelWithString: "Install for SDR++ or SDR++Brown. Choose your radio application below.")
@@ -190,7 +190,7 @@ final class InstallerWindow: NSObject, NSApplicationDelegate, NSWindowDelegate, 
 
     private func finished(_ installed: InstallReceipt) {
         receipt = installed; busy = false; progress.stopAnimation(nil)
-        status.stringValue = "Installed. Open \(manifests[selectedHost].hostName) and find Kondor Advanced Decoder in the sidebar."
+        status.stringValue = "Installed. Open \(manifests[selectedHost].hostName) and find Kondor Weak Signal Modes Decoder in the sidebar."
         status.textColor = .systemGreen
         primary.title = "Open \(manifests[selectedHost].hostName)"; primary.isEnabled = true
         cancel.title = "Done"; cancel.isEnabled = true

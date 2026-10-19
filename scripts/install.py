@@ -1,4 +1,4 @@
-"""Install Kondor Advanced Decoder outside the host's signed app, with reversible backups."""
+"""Install Kondor Weak Signal Modes Decoder outside the host's signed app, with reversible backups."""
 import argparse
 import datetime
 import hashlib
@@ -12,8 +12,8 @@ from mode_payload import mode_files, NATIVE_BINARIES
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ("dx_notebook.dylib", "dx_decoder", "world.geojson")
-INSTANCE_NAME = "Kondor Advanced Decoder"
-PREVIOUS_NAMES = ("Advanced FT8/FT4/WSPR DX Decoder", "Advanced FT8/FT4 DX Decoder", "DX Notebook")
+INSTANCE_NAME = "Kondor Weak Signal Modes Decoder"
+PREVIOUS_NAMES = ("Kondor Advanced Decoder", "Advanced FT8/FT4/WSPR DX Decoder", "Advanced FT8/FT4 DX Decoder", "DX Notebook")
 MODULE_NAME = "advanced_ft8_ft4_dx_decoder"
 
 
@@ -25,7 +25,7 @@ def install(build, profile, host="brown"):
     previous = [instances[name] for name in PREVIOUS_NAMES if name in instances]
     legacy = next(iter(previous), None)
     if existing and existing.get("module") not in (MODULE_NAME, "dx_notebook"):
-        raise ValueError("Kondor Advanced Decoder name belongs to another module")
+        raise ValueError("Kondor Weak Signal Modes Decoder name belongs to another module")
     if any(value.get("module") not in (MODULE_NAME, "dx_notebook") for value in previous):
         raise ValueError("Legacy DX Notebook name belongs to another module")
     target = profile / "plugins/dx-notebook"

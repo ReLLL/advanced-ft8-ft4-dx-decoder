@@ -1,4 +1,4 @@
-# Kondor FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65 Advanced Decoder
+# Kondor Weak Signal Modes Decoder: FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65
 
 **Receive-only FT8, FT4, WSPR, FST4/FST4W, Q65 and JS8 decoding, a DX map, and reception logging for SDR++, SDR++Brown and SDR# (SDR Sharp).** FT8, FT4 and WSPR start on; enable the other modes in Settings. See the stations you hear, their countries, receiver SNR, approximate distances and recent exchanges without opening a separate mapper.
 
@@ -12,7 +12,7 @@ ReLLL develops this plugin's receiver integration, mapping, reception history an
 
 ## Download and install
 
-Kondor is the new project name. Published v1.0.50 packages still show **Advanced FT8/FT4/WSPR DX Decoder** and **Install Advanced FT8-FT4-WSPR DX Decoder**; Kondor labels are prepared for v1.0.51.
+Kondor is the new project name. Published v1.0.50 packages still show **Advanced FT8/FT4/WSPR DX Decoder** and **Install Advanced FT8-FT4-WSPR DX Decoder**; Kondor labels are prepared for v1.0.52.
 
 Choose the package for your SDR application and operating system:
 
@@ -29,9 +29,9 @@ The Windows adapter targets the .NET 9 x64 SDR# application. The macOS installer
 [Download the latest release](https://github.com/ReLLL/kondor-weak-signal-modes-decoder/releases/latest). The installer supports **both SDR++ and SDR++Brown** on **Apple Silicon Macs running macOS 15 or later**. Verified hosts: **SDR++ 1.2.0, May 28, 2024 build** and **SDR++Brown 1.2.1, August 4, 2026 build**. Both were tested on macOS 26.
 
 1. Install [SDR++](https://github.com/AlexandreRouma/SDRPlusPlus/releases/tag/nightly) or [SDR++Brown](https://sdrpp-brown.san.systems/) in **Applications**. Skip this if you already have the supported app installed.
-2. Download and open `installer-macos-arm64.dmg`, then open **Install Kondor Advanced Decoder**. The ZIP includes the same installer if you prefer to extract it.
+2. Download and open `installer-macos-arm64.dmg`, then open **Install Kondor Weak Signal Modes Decoder**. The ZIP includes the same installer if you prefer to extract it.
 3. The installer detects the installed radio app. If both are installed, choose the one you want. An existing **Home locator** is prefilled. If it is empty, the installer can request macOS location permission and suggest a grid; confirm that the estimate matches your receiver's location, or use **Find grid on map**. Click **Install**. First-run settings are prepared automatically if needed; an open host is asked to quit normally before its configuration is updated.
-4. Click **Open SDR++** or **Open SDR++Brown**. Open **Kondor Advanced Decoder** from the sidebar.
+4. Click **Open SDR++** or **Open SDR++Brown**. Open **Kondor Weak Signal Modes Decoder** from the sidebar.
 5. If you skipped the home locator, set your actual **Maidenhead grid** before relying on distances and bearings. In **Brown**, expand the left **Source** panel and find **My Grid** below **Operator Callsign**. Enter a four- or six-character locator; Brown shows coordinates beside a valid grid, or **Invalid**. In **standard SDR++**, open the plugin's **Settings > General > Maidenhead grid**; four, six or eight characters are accepted. For example, `KM69` and `KM69xx` show the format; use your own locator. More characters give a smaller location area. Distances and bearings use the grid center. Standard SDR++ keeps distances and the home marker unavailable until a valid home locator is configured.
 6. Start your SDR and tune a capture covering a supported FT8, FT4 or WSPR dial frequency. Eligible presets show **Receiving**.
 
@@ -61,7 +61,7 @@ The Windows preview has decoded an FT8 IQ recording in **SDR# 1.0.0.1921** on Wi
 1. Install the **x64 .NET 9** version of [SDR# from Airspy](https://airspy.com/download/) and check that SDR# opens normally.
 2. Extract the complete Windows decoder ZIP, then close SDR#.
 3. Open **Install.cmd** and select **SDRSharp.dotnet9.exe** in your SDR# folder. The installer verifies the package, installs the plugin and backs up an existing installation.
-4. Open SDR#. Find **Kondor Advanced Decoder** in the plugins panel, enable it, and click **Open Kondor Advanced Decoder**.
+4. Open SDR#. Find **Kondor Weak Signal Modes Decoder** in the plugins panel, enable it, and click **Open Kondor Decoder**.
 5. In the decoder, set **Settings > General > Maidenhead grid** to your receiver's location. Find the locator with the [K7FRY grid map](https://k7fry.com/grid/): click your receiver's location and copy its first six characters.
 6. Start the radio and tune the captured spectrum to a supported dial frequency. FT8, FT4 and WSPR are enabled initially. Closing the decoder window keeps reception running; its Open button brings it back.
 

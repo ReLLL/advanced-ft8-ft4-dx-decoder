@@ -6,10 +6,11 @@ namespace SDRSharp.AdvancedDx;
 
 public sealed class AdvancedDxPlugin : ISharpPlugin, ICanLazyLoadGui, ISupportStatus, IExtendedNameProvider
 {
+    internal const string ProductName = "Kondor Weak Signal Modes Decoder: FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65";
     private ISharpControl? control;
     private DecoderBridge? bridge;
     private ControlPanel? panel;
-    public string DisplayName => "Kondor Advanced Decoder";
+    public string DisplayName => "Kondor Weak Signal Modes Decoder";
     public string Category => "Digital";
     public string MenuItemName => DisplayName;
     public bool IsActive => bridge?.Enabled == true;
@@ -48,7 +49,8 @@ internal sealed class ControlPanel : UserControl
         AutoSize = true;
         var layout = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
         var enabled = new CheckBox { Text = "Enable decoder", Checked = bridge.Enabled, AutoSize = true };
-        var open = new Button { Text = "Open Kondor Advanced Decoder", AutoSize = true };
+        var open = new Button { Text = "Open Kondor Decoder", AutoSize = true };
+        tip.SetToolTip(open, AdvancedDxPlugin.ProductName);
         enabled.CheckedChanged += (_, _) => bridge.Enabled = enabled.Checked;
         open.Click += (_, _) => bridge.ShowWindow();
         layout.Controls.AddRange([enabled, open, status]);

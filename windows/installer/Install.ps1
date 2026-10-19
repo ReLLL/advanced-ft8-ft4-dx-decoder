@@ -50,7 +50,7 @@ try {
         if (Test-Path $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
     }
     if ($Quiet) { Write-Output 'Installed. Reception history and preferences are preserved.' }
-    else { [System.Windows.Forms.MessageBox]::Show('Installed. Open SDR# and look for Kondor Advanced Decoder in its plugins panel. Set your home Maidenhead grid in the decoder settings for distances and bearings.', 'Kondor Advanced Decoder') | Out-Null }
+    else { [System.Windows.Forms.MessageBox]::Show('Installed. Open SDR# and look for Kondor Weak Signal Modes Decoder in its plugins panel. Set your home Maidenhead grid in the decoder settings for distances and bearings.', 'Kondor Weak Signal Modes Decoder') | Out-Null }
 } catch {
     if ($Quiet) { Write-Error $_.Exception.Message -ErrorAction Continue }
     else { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Installation could not finish', 'OK', 'Error') | Out-Null }

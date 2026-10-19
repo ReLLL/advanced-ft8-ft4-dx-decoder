@@ -12,7 +12,7 @@ def main():
     args = parser.parse_args()
     if urllib.parse.urlparse(args.url).hostname not in ("127.0.0.1", "localhost", "::1"):
         raise ValueError("Use an existing local test endpoint")
-    endpoint = args.url.rstrip("/") + "/module/" + urllib.parse.quote("Kondor Advanced Decoder", safe="") + "/command"
+    endpoint = args.url.rstrip("/") + "/module/" + urllib.parse.quote("Kondor Weak Signal Modes Decoder", safe="") + "/command"
 
     def command(name, values=""):
         body = json.dumps({"cmd": name, "args": values}).encode()

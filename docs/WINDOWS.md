@@ -12,7 +12,7 @@ Extract the complete Windows ZIP. Close SDR#, run `Install.cmd`, then select `SD
 
 To install manually, close SDR# and copy the ZIP's top-level `AdvancedDx` folder into `Plugins` beside `SDRSharp.dotnet9.exe`. Keep its structure: `Plugins\AdvancedDx\SDRSharp.AdvancedDx.dll` is the adapter, and `Plugins\AdvancedDx\AdvancedDx\` holds the native worker and all accompanying files. Use the configured directory instead if `SDRSharp.config` overrides `core.pluginsDirectory`. Move an old plugin folder to a backup outside the plugins directory before upgrading. No `Plugins.xml` entry is needed. [Full manual installation notes](INSTALL.md#windows-installation-sdr).
 
-In SDR#'s plugins panel, enable **Kondor Advanced Decoder** and use **Open Kondor Advanced Decoder**. Closing its window hides it; reception continues while enabled and the radio is running. Reopen brings the current data to the front. A failed worker can be restarted with Open.
+In SDR#'s plugins panel, enable **Kondor Weak Signal Modes Decoder** and use **Open Kondor Decoder**. Closing its window hides it; reception continues while enabled and the radio is running. Reopen brings the current data to the front. A failed worker can be restarted with Open.
 
 FT8, FT4 and WSPR are enabled initially. Settings provide the other supported modes. Only presets inside the captured spectrum can receive. SDR#'s native downconverter, resampler and filters prepare private copies of the IQ data; the adapter never modifies the host buffer. Decoding runs in bounded, lower-priority processes. Stopping/retuning invalidates incomplete captures. Audio gaps invalidate a sequence rather than joining unrelated samples.
 

@@ -1,6 +1,6 @@
 # Credits
 
-Kondor FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65 Advanced Decoder is developed by [ReLLL](https://github.com/ReLLL). Its receiver integration, maps, reception history and interface build on substantial work by the amateur-radio and open-source communities.
+Kondor Weak Signal Modes Decoder: FT8 / FT4 / WSPR / FST4 / FST4W / JS8 / Q65 is developed by [ReLLL](https://github.com/ReLLL). Its receiver integration, maps, reception history and interface build on substantial work by the amateur-radio and open-source communities.
 
 ## WSJT-X, protocols and decoder algorithms
 
